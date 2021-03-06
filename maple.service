@@ -1,0 +1,15 @@
+[Unit]
+Description=Maple Control Web Server
+Wants=multi-user.target
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/mark/maple/gpio.py
+Restart=always
+User=mark
+Group=mark
+
+[Install]
+WantedBy=multi-user.target maplecontrol.service
+

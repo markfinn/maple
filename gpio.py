@@ -5,7 +5,7 @@ import logging
 log = logging.getLogger('maple')
 log.setLevel(logging.DEBUG)
 #ch = logging.StreamHandler()
-ch = logging.FileHandler('maple.log')
+ch = logging.FileHandler('/home/mark/maple.log')
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 ch.setFormatter(formatter)
 log.addHandler(ch)

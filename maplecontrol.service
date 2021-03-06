@@ -1,0 +1,16 @@
+[Unit]
+Description=Maple Control Web Server
+Wants=network.target
+After=network.target
+
+[Service]
+Environment=FLASK_APP=/home/mark/maple/webapp.py
+Environment=FLASK_ENV=development
+Type=simple
+ExecStart=/usr/bin/flask run --port 8080 -h 0.0.0.0
+Restart=on-abort
+User=mark
+Group=mark
+
+[Install]
+WantedBy=kiosk.service

@@ -1,14 +1,14 @@
 [Unit]
 Description=Chromium Kiosk
-Wants=graphical.target
-After=graphical.target
+Wants=graphical.target maplecontrol.service
+After=graphical.target maplecontrol.service
 
 [Service]
 Environment=DISPLAY=:0.0
 Environment=XAUTHORITY=/home/pi/.Xauthority
 Type=simple
-ExecStart=/bin/bash /home/mark/kiosk.sh
-Restart=on-abort
+ExecStart=/bin/bash /home/mark/maple/kiosk.sh
+Restart=always
 User=mark
 Group=mark
 
