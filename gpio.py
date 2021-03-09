@@ -2,7 +2,7 @@ import gpiozero
 import logging
 import asyncio
 import signal, os, sys
-
+import watchdogdev
 
 class Timer:
     def __init__(self, timeout, callback):
@@ -76,7 +76,7 @@ async def main():
 
 
   def handler(signum, frame):
-    log.warn('Signal handler called with signal', signum)
+    log.warning('Signal handler called with signal %d', signum)
     # Raises SystemExit(0):
     sys.exit(0)
 
@@ -87,6 +87,7 @@ async def main():
 
   try:
     log.info('Starting')
+
 
     airvac = gpiozero.DigitalOutputDevice(14, active_high=False)
     sapvac = gpiozero.DigitalOutputDevice(15, active_high=False)
@@ -99,7 +100,20 @@ async def main():
     watchdog=watchdogdev.watchdog('/dev/watchdog')
     watchdog.set_timeout(5)
     if watchdog.get_boot_status():
-      log.error('Last boot was from Watchdog!!')
+      log.error('Last boot was from Watchdog!!')#not working?
+
+    async def wd_alive():
+      while True:
+        watchdog.keep_alive()
+        await asyncio.sleep(1)
+    wd_task = asyncio.ensure_future(wd_alive())
+
+
+
+#    while 1:
+#        await asyncio.sleep(5)
+    ASD
+
 
     romain.on()
     rossr.value=1
@@ -127,9 +141,14 @@ async def main():
       sapvac.off()
 
 
+  except SystemExit:
+    log.info('SystemExit')
+  except asyncio.CancelledError:
+    log.info('SystemExit')
+    raise
   except:
     log.exception('unhandled exception')
-    raise
+    #raise
 
   finally:
     airvac.off()
@@ -137,7 +156,11 @@ async def main():
     romain.off()
     rossr.off()
     outvalve.off()
+
+    watchdog.keep_alive()
+    wd_task.cancel()
     watchdog.magic_close()
+    log.info('Shutdown')
 
 
 if __name__ == '__main__':
