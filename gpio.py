@@ -63,9 +63,14 @@ async def main():
 
   log = logging.getLogger('maple')
   log.setLevel(logging.DEBUG)
+
   ch = logging.StreamHandler()
   #ch = logging.FileHandler('/home/mark/maple.log')
-  formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+  if os.getenv("INVOCATION_ID"):
+    #am under systemd for logging, journal has timestamp
+    formatter = logging.Formatter('%(levelname)s - %(message)s')
+  else:
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
   ch.setFormatter(formatter)
   log.addHandler(ch)
 
