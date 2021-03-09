@@ -1,0 +1,6 @@
+  651  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh | bash
+  654  nvm install stable
+  655  nvm use stable
+  660  npm init vite-app maple
+  666  npm install
+  677  npm run dev

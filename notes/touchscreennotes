@@ -1,0 +1,174 @@
+  485  dmesg
+  486  sudo screen /dev/ttyUSB0
+  487  cd maple/
+  488  sudo apt install screen
+  489  joe pkgs
+  490  sudo screen /dev/ttyUSB0
+  491  screen -r
+  492  sudo screen -r
+  493  screen -R
+  494  sudo apt-get install xserver-xorg-input-mutouch
+  495  cr /etc/X11/
+  496  ls
+  497  cd /etc/X11/
+  498  ls
+  499  cd /usr/share/
+  500  cd X11/
+  501  ls
+  502  cd xorg.conf.d/
+  503  ls
+  504  cat 40-libinput.conf 
+  505  sudo cp  40-libinput.conf 41-serialtouchscreen.conf
+  506  sudo -e 41-serialtouchscreen.conf 
+  507  grep Serv *
+  508  udo systemctl restart lightdm.servi\
+  509  udo systemctl restart lightdm.servi
+  510  sudo systemctl restart lightdm.service 
+  511  sudo -e 41-serialtouchscreen.conf 
+  512  sudo systemctl restart lightdm.service 
+  513  sudo journalctl -u lightdm.service -f -n
+  514  sudo -e 41-serialtouchscreen.conf 
+  515  sudo journalctl -u lightdm.service -f -n
+  516  sudo systemctl restart lightdm.service 
+  517  Xinput
+  518  xinput
+  519  sudo apt install xinput
+  520  xinput
+  521  DISPLAY=:0 xinput
+  522  man xinput
+  523  DISPLAY=:0 xinput --list
+  524  pwd
+  525  cd /etc/X11/
+  526  ls
+  527  sudo mkdir xorg.conf.d
+  528  cd xorg.conf.d/
+  529  sudo mv /usr/share/X11/xorg.conf.d/41 .
+  530  sudo mv /usr/share/X11/xorg.conf.d/41-serialtouchscreen.conf .
+  531  xsetpointer 
+  532  xsetpointer -l
+  533  DISPLAY=:0 xsetpointer 
+  534  DISPLAY=:0 xsetpointer -l
+  535  sudo -e 41-serialtouchscreen.conf 
+  536  joe /usr/share/X11/xorg.conf.d/70-wacom.conf 
+  537  grep -i wacom /usr/share/X11/xorg.conf.d/
+  538  grep -i wacom /usr/share/X11/xorg.conf.d/*
+  539  X -configure
+  540  sudo X :1 -configure
+  541  ls
+  542  ls ~
+  543  sudo ls /root
+  544  sudo X :1 -configure asdf.new
+  545  sudo -e 41-serialtouchscreen.conf 
+  546  sudo systemctl restart lightdm.service 
+  547  sudo journalctl -u lightdm.service -f -n
+  548  cd /var/log
+  549  ls
+  550  ls -ltr
+  551  tail Xorg.0.log
+  552  less Xorg.0.log
+  553  sudo -e /etc/X11/xorg.conf.d/41-serialtouchscreen.conf 
+  554  sudo systemctl restart lightdm.service 
+  555  sudo journalctl -u lightdm.service -f -n
+  556  less Xorg.0.log
+  557  DISPLAY=:0 xrand
+  558  DISPLAY=:0 xrandr 
+  559  sudo -e /etc/X11/xorg.conf.d/41-serialtouchscreen.conf 
+  560  sudo systemctl restart lightdm.service 
+  561  less Xorg.0.log
+  562  sudo journalctl -u lightdm.service -f -n
+  563  DISPLAY=:0 xrandr 
+  564  DISPLAY=:0 xinput
+  565  less Xorg.0.log
+  566  sudo apt-get install xserver-xorg-input-mutouch
+  567  sudo -e /etc/X11/xorg.conf.d/41-serialtouchscreen.conf 
+  568  sudo systemctl restart lightdm.service 
+  569  less Xorg.0.log
+  570  sudo -e /etc/X11/xorg.conf.d/41-serialtouchscreen.conf 
+  571  sudo systemctl restart lightdm.service 
+  572  less Xorg.0.log
+  573  ls /dev/tty*
+  574  sudo -e /etc/X11/xorg.conf.d/41-serialtouchscreen.conf 
+  575  sudo systemctl restart lightdm.service 
+  576  less Xorg.0.log
+  577  xinput 
+  578  DISPLAY=:0 xinput
+  579  less Xorg.0.log
+  580  sudo apt-get install xserver-xorg-input-elographics 
+  581  sudo -e /etc/X11/xorg.conf.d/41-serialtouchscreen.conf 
+  582  sudo systemctl restart lightdm.service 
+  583  less Xorg.0.log
+  584  DISPLAY=:0 xinput
+  585  less Xorg.0.log
+  586  sudo modprobe elo
+  587  sudo apt-get install xserver-xorg-input-evtouch
+  588  lshal | grep Elo
+  589  sudo lshal | grep Elo
+  590  sudo -e /etc/X11/xorg.conf.d/41-serialtouchscreen.conf 
+  591  sudo systemctl restart lightdm.service 
+  592  less Xorg.0.log
+  593  sudo modprobe mtouch
+  594  cd /lib/modules/5.10.11-v7+
+  595  ls
+  596  apt rdepends dkms
+  597  apt rdepends dkms | grep touch
+  598  cd
+  599  modprobe configs; zcat /proc/config.gz /usr/local/src/linux/.config; make oldconfig; make -j 4; make -j 4 modules
+  600  sudo modprobe configs; zcat /proc/config.gz /usr/local/src/linux/.config; make oldconfig; make -j 4; make -j 4 modules
+  601  zcat /proc/config.gz
+  602  cd /usr/local/src
+  603  ls
+  604  rpi-source
+  605  sudo apt install rpi-source
+  606  rpi-source
+  607  ls ~
+  608  sudo mv ~mark/linux-6af8ae321a801a4e20183454c65eb0d23069d8ac /usr/local/src/
+  609  sudo chown root.root linux-6af8ae321a801a4e20183454c65eb0d23069d8ac
+  610  sudo chown -R root.root linux-6af8ae321a801a4e20183454c65eb0d23069d8ac
+  611  sudo ln -s linux-6af8ae321a801a4e20183454c65eb0d23069d8ac linux
+  612  ls -ltr
+  613  cd
+  614  zcat /proc/config.gz /usr/local/src/linux/.config
+  615  cat /usr/local/src/linux/.config
+  616  zcat /proc/config.gz 
+  617  zcat /proc/config.gz > a
+  618  diff a /usr/local/src/linux/.config
+  619  cd /usr/local/src/linux
+  620  sudo make oldconfig
+  621  sudo make menuconfig
+  622  make -j3 modules
+  623  sudo make -j3 modules
+  624  sudo make -j3 -C . M=drivers/input/touchscreen
+  625  find . -name \*.ko
+  626  sudo make -j3 modules
+  627  ps
+  628  ps uax
+  629  top
+  630  cd /usr/share/src
+  631  cd /usr/share
+  632  cd ../src
+  633  ls
+  634  cd ../share/
+  635  ls
+  636  cd src
+  637  ls
+  638  w
+  639  cd /usr/local/src/linux
+  640  ls
+  641  sudo make -j3 modules
+  642  screen
+  643  cd maple/
+  644  git status
+  645  git add -p
+  646  git commit 
+  647  git push
+  648  sudo make -j3 modules
+  667  ps uax | grep screen
+  668  cd /usr/local/src/linux
+  669  sudo make -j3 modules
+  670  ls
+  671  ls drivers/input/touchscreen/
+  672  pwd
+  673  ls /usr/local/src/linux/drivers/input/touchscreen/
+  674  ls /usr/local/src/linux/drivers/input/touchscreen/*.ko
+  675  screen
+  676  ls /usr/local/src/linux/drivers/input/touchscreen/*.ko

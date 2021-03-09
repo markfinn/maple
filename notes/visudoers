@@ -1,0 +1,3 @@
+ALL ALL=NOPASSWD: /sbin/reboot, /sbin/poweroff
+
+
