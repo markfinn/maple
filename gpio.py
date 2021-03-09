@@ -86,6 +86,7 @@ async def main():
 
 
   try:
+    log.info('Starting')
 
     airvac = gpiozero.DigitalOutputDevice(14, active_high=False)
     sapvac = gpiozero.DigitalOutputDevice(15, active_high=False)
@@ -94,12 +95,17 @@ async def main():
     rossr = gpiozero.PWMOutputDevice(24, active_high=True, frequency=.3)
     outvalve = gpiozero.DigitalOutputDevice(25, active_high=False)
 
+    log.info('Setting Watchdog')
+    watchdog=watchdogdev.watchdog('/dev/watchdog')
+    watchdog.set_timeout(5)
+    if watchdog.get_boot_status():
+      log.error('Last boot was from Watchdog!!')
+
     romain.on()
     rossr.value=1
     await asyncio.sleep(900)
     
     sdfg
-    log.info('Starting')
     if sapfloat.value:
       log.info('draining')
       sapvac.on()
@@ -131,7 +137,7 @@ async def main():
     romain.off()
     rossr.off()
     outvalve.off()
-    # watchdog.stop()
+    watchdog.magic_close()
 
 
 if __name__ == '__main__':
