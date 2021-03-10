@@ -4,10 +4,11 @@ Wants=network.target
 After=network.target
 
 [Service]
-Environment=FLASK_APP=/home/mark/maple/webapp.py
-Environment=FLASK_ENV=development
+Environment=NVM_INC=/home/mark/.nvm/versions/node/v15.11.0/include/node
+Environment=NVM_BIN=/home/mark/.nvm/versions/node/v15.11.0/bin
+WorkingDirectory=/home/mark/maple/vue
 Type=simple
-ExecStart=/usr/bin/flask run --port 8080 -h 0.0.0.0
+ExecStart=/bin/bash -c 'PATH=/home/mark/.nvm/versions/node/v15.11.0/bin:$PATH exec npm run dev'
 Restart=on-abort
 User=mark
 Group=mark

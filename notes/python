@@ -1,0 +1,16 @@
+ 1450  wget https://www.python.org/ftp/python/3.9.2/Python-3.9.2.tar.xz
+ 1451  tar xf Python-3.9.2.tar.xz 
+ 1452  cd Python-3.9.2/
+ 1629  sudo apt-get install -y build-essential tk-dev libncurses5-dev libncursesw5-dev libreadline6-dev libdb5.3-dev libgdbm-dev libsqlite3-dev libssl-dev libbz2-dev libexpat1-dev liblzma-dev zlib1g-dev libffi-dev
+ 1454  ./configure --enable-optimizations
+ 1455  make -j4
+
+ 1607  cd maple/Python-3.9.2/
+ 1610  ./python -m venv ../venv
+ 1611  cd ..
+ 1612  . venv/bin/activate
+ 1616  pip install gpiozero
+ 1617  pip install --upgrade pip
+ 1638  pip install watchdogdev
+ 1640  pip install quart quart-cors
+ 1643  pip install RPI.GPIO

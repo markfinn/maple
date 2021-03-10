@@ -1,0 +1,8 @@
+ 1494  sudo apt-get install python3-certbot-dns-rfc2136 
+ 1516  sudo certbot certonly --dns-rfc2136 --dns-rfc2136-credentials ~mark/rfc2136.ini --dns-rfc2136-propagation-seconds 120 -d maple.bluesparc.net
+
+ 1521  cd /etc/cron.daily/
+ 1530  sudo -e letsencrypt # certbot renew
+ 1541  sudo cp /etc/letsencrypt/live/maple.bluesparc.net/privkey.pem .
+ 1556  sudo cp /etc/letsencrypt/live/maple.bluesparc.net/fullchain.pem .
+ 1559  sudo chown mark.mark *.pem
