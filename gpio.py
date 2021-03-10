@@ -8,7 +8,7 @@ import threading
 import contextlib
 import collections
 import time
-
+import fcntl
 
 ######################################################3
 class AsyncDigitalInputDevice(gpiozero.DigitalInputDevice):
@@ -75,8 +75,9 @@ class OverridableDigitalOutputDevice():
     return self._value
   @value.setter
   def value(self, v):
+    ov = self._value
     self._value = v
-    if self._overmode == 2 and self._value != v:
+    if self._overmode == 2 and ov != v:
       self._dev.value = v
       self._notify()
 
@@ -135,12 +136,12 @@ log.addHandler(ch)
 
 class Maple():
   def __init__(self):
-    self.airvac = OverridableDigitalOutputDevice(14, active_high=False)
+    self.airvac = OverridableDigitalOutputDevice(25, active_high=False)
     self.sapvac = OverridableDigitalOutputDevice(15, active_high=False)
     self.sapfloat = AsyncDigitalInputDevice(18, pull_up=True, active_state=None)
     self.romain = OverridableDigitalOutputDevice(23, active_high=False)
     self.rossr = OverridableDigitalOutputDevice(24, active_high=True, frequency=.3, factory = gpiozero.PWMOutputDevice)
-    self.outvalve = OverridableDigitalOutputDevice(25, active_high=False)
+    self.outvalve = OverridableDigitalOutputDevice(14, active_high=False)
 
   async def run(self):
     try:
@@ -157,34 +158,34 @@ class Maple():
 
       wd_task = asyncio.ensure_future(wd_alive())
 
-      while 1:
-        await asyncio.sleep(5)
-      ASD
+#      while 1:
+#        await asyncio.sleep(5)
+#      ASD
 
-      romain.on()
-      rossr.value = 1
-      await asyncio.sleep(900)
+      self.romain.on()
+      self.rossr.value = 1
+ #     await asyncio.sleep(900)
 
-      sdfg
-      if sapfloat.value:
+ #     sdfg
+      if self.sapfloat.value:
         log.info('draining')
-        sapvac.on()
-        await sapfloat.wait_for_inactive(120)
-      sapvac.off()
-      airvac.on()
+        self.sapvac.on()
+        await self.sapfloat.wait_for_inactive(120)
+      self.sapvac.off()
+      self.airvac.on()
 
       log.info('Running')
       while True:
-        await sapfloat.wait_for_active()
+        await self.sapfloat.wait_for_active()
         log.info('Sap Pump on')
 
-        sapvac.on()
-        while sapfloat.value:
-          await sapfloat.wait_for_inactive(120)
+        self.sapvac.on()
+        while self.sapfloat.value:
+          await self.sapfloat.wait_for_inactive(120)
           await asyncio.sleep(5)
 
         log.info('Sap Pump off')
-        sapvac.off()
+        self.sapvac.off()
 
 
     except SystemExit:
@@ -221,7 +222,12 @@ async def runinotherthread():
 async def main():
 
 
-
+  lock_file_pointer = os.open(f"/tmp/instance_maple.lock", os.O_WRONLY|os.O_CREAT|os.O_TRUNC)
+  try:
+    fcntl.lockf(lock_file_pointer, fcntl.LOCK_EX | fcntl.LOCK_NB)
+  except IOError:
+    log.error('already running another copy')
+    raise
 
   log.info('Starting')
 
@@ -342,8 +348,11 @@ if __name__ == "__main__":
   signal.signal(signal.SIGTERM, handler)
 
 
-
-  await maple.run()
+  try:
+    await maple.run()
+  finally:
+    if webloop:
+      webloop.call_soon_threadsafe(webshut.set)
 
 
 ######################################################3

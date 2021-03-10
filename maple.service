@@ -1,11 +1,12 @@
 [Unit]
-Description=Maple Control Web Server
+Description=Maple Control
 Wants=multi-user.target
 After=multi-user.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /home/mark/maple/gpio.py
+WorkingDirectory=/home/mark/maple
+ExecStart=/home/mark/maple/venv/bin/python /home/mark/maple/gpio.py
 Restart=always
 User=mark
 Group=mark
