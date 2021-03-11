@@ -1,15 +1,15 @@
 <template>
-  <img alt="Maple logo" src="./assets/large_maple-leaf.png" />
-  <HelloWorld msg="Hello Vue 3.0 + Vite" />
+  <img alt="Maple logo" src="./assets/large_maple-leaf.png" class="w-25 p-3 h-25" />
+  <Maple/>
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld.vue'
+import Maple from './components/Maple.vue'
 
 export default {
   name: 'App',
   components: {
-    HelloWorld
+    Maple
   }
 }
 </script>

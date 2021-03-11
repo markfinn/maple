@@ -1,8 +1,8 @@
 import asyncio
 import os
-from quart import Quart, redirect, abort, make_response, request
+from quart import Quart, redirect, abort, make_response, request, json
 from quart_cors import cors
-import gpio
+import control
 
 app = Quart(__name__)
 app = cors(app, allow_origin='http://maple.bluesparc.net:3000')#  '*' works too
@@ -59,8 +59,8 @@ async def poweroff():
 @app.route("/api/log")
 async def log():
     skipto = request.headers.get("Last-Event-ID")
-    async with app.config['logqueuer'].watch() as queue:
-        async def send_events():
+    async def send_events():
+        async with app.config['logqueuer'].watch() as queue:
             while True:
                 evid, data = await queue.get()
                 if skipto is not None and evid <= skipto:
@@ -68,42 +68,43 @@ async def log():
                 event = ServerSentEvent(data, id=evid)
                 yield event.encode()
 
-        response = await make_response(send_events(), ServerSentEvent.headers)
-        response.timeout = None
-        return response
+    response = await make_response(send_events(), ServerSentEvent.headers)
+    response.timeout = None
+    return response
 
-@app.route("/api/outputs/<string:which>", methods=['GET', 'POST'])
+@app.route("/api/outputs/<which>", methods=['GET', 'POST'])
 async def outputs(which):
     try:
         o = getattr(app.config['maple'], which)
-        assert isinstance(o, gpio.OverridableDigitalOutputDevice)
+        assert isinstance(o, control.OverridableDigitalOutputDevice)
     except:
         abort(404)
 
     if request.method == 'POST':
-#        if request.is_json
-#            val = request.json['value']
-        val = request.form['value']
+        if request.is_json:
+            val = await request.json
+            val = val['value']
+#        val = await request.get_data()
         o.overmode = val
-        return 'ok'
+        return {'overmode': o._overmode, 'value': o._value}
 
-    with o.watch(asyncio.get_event_loop()) as queue:
-        async def send_events():
+    async def send_events():
+        async with o.watch() as queue:
             while True:
                 data = await queue.get()
-                event = ServerSentEvent(data)
+                event = ServerSentEvent(json.dumps({'overmode': data[0], 'value': data[1]}))
                 yield event.encode()
 
-        response = await make_response(send_events(), ServerSentEvent.headers)
-        response.timeout = None
-        return response
+    response = await make_response(send_events(), ServerSentEvent.headers)
+    response.timeout = None
+    return response
 
 @app.route("/api/outputs")
 async def outputsls():
     response = {}
     for n in dir(app.config['maple']):
         o = getattr(app.config['maple'], n)
-        if isinstance(o, gpio.OverridableDigitalOutputDevice):
+        if isinstance(o, control.OverridableDigitalOutputDevice):
             response[n] = str(o)
 
     return response
@@ -113,7 +114,7 @@ async def inputsls():
     response = {}
     for n in dir(app.config['maple']):
         o = getattr(app.config['maple'], n)
-        if isinstance(o, gpio.AsyncDigitalInputDevice):
+        if isinstance(o, control.AsyncDigitalInputDevice):
             response[n] = str(o)
 
     return response
