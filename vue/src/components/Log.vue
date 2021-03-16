@@ -14,7 +14,7 @@ export default {
     onMounted(async () => {
       var es = new EventSource('https://maple.bluesparc.net:8443/api/log');
       es.onmessage = (event) => {
-        log.value.push(event.data);
+        log.value.unshift(event.data);
       }
     });
     return {

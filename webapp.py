@@ -7,6 +7,10 @@ import control
 app = Quart(__name__)
 app = cors(app, allow_origin='http://maple.bluesparc.net:3000')#  '*' works too
 
+import logging
+logging.getLogger('quart.serving').setLevel('WARNING')
+
+
 
 class ServerSentEvent:
 
@@ -72,11 +76,17 @@ async def log():
     response.timeout = None
     return response
 
-@app.route("/api/outputs/<which>", methods=['GET', 'POST'])
+@app.route("/api/inputs/<which>", methods=['GET', 'POST'], endpoint='inputs')
+@app.route("/api/outputs/<which>", methods=['GET', 'POST'], endpoint='outputs')
 async def outputs(which):
     try:
         o = getattr(app.config['maple'], which)
-        assert isinstance(o, control.OverridableDigitalOutputDevice)
+        if request.endpoint=='outputs':
+          assert isinstance(o, control.OverridableDigitalOutputDevice)
+        elif request.endpoint=='inputs':
+          assert isinstance(o, control.AsyncDigitalInputDevice)
+        else:
+          assert 0, 'bad endpoint'
     except:
         abort(404)
 
@@ -99,27 +109,71 @@ async def outputs(which):
     response.timeout = None
     return response
 
-@app.route("/api/outputs")
+@app.route("/api/inputs", endpoint='inputsls')
+@app.route("/api/outputs", endpoint='outputsls')
 async def outputsls():
     response = {}
     for n in dir(app.config['maple']):
         o = getattr(app.config['maple'], n)
-        if isinstance(o, control.OverridableDigitalOutputDevice):
+        if request.endpoint=='outputsls' and isinstance(o, control.OverridableDigitalOutputDevice):
+            response[n] = str(o)
+        elif request.endpoint=='inputsls' and isinstance(o, control.AsyncDigitalInputDevice):
             response[n] = str(o)
 
     return response
 
-@app.route("/api/inputs")
-async def inputsls():
-    response = {}
-    for n in dir(app.config['maple']):
-        o = getattr(app.config['maple'], n)
-        if isinstance(o, control.AsyncDigitalInputDevice):
-            response[n] = str(o)
+@app.route("/api/pressure")
+async def pressure():
+    async def send_events():
+        #async with o.watch() as queue:
+        while True:
+                data = app.config['maple'].pressure#await queue.get()
+                event = ServerSentEvent(json.dumps({'value': data}))
+                yield event.encode()
+                await asyncio.sleep(.3)
 
+    response = await make_response(send_events(), ServerSentEvent.headers)
+    response.timeout = None
     return response
 
-if __name__ == "__main__":
-#    app.run(host="127.0.0.1", port=8080, debug=True)
-    app.run(host="0.0.0.0", port=8080, debug=True)
-    
+@app.route("/api/ins")
+async def tempins():
+    async def send_events():
+        #async with o.watch() as queue:
+        while True:
+                data = (app.config['maple'].sapfloat.value, app.config['maple'].sapfloathigh.value, app.config['maple'].recfloat.value)
+                event = ServerSentEvent(json.dumps({'value': data}))
+                yield event.encode()
+                await asyncio.sleep(.3)
+
+    response = await make_response(send_events(), ServerSentEvent.headers)
+    response.timeout = None
+    return response
+
+@app.route("/api/saptimes")
+async def saptimes():
+    async def send_events():
+        #async with o.watch() as queue:
+        while True:
+                data = (app.config['maple'].saptime1.avg, app.config['maple'].saptime2.avg)
+                event = ServerSentEvent(json.dumps({'value': data}))
+                yield event.encode()
+                await asyncio.sleep(1)
+
+    response = await make_response(send_events(), ServerSentEvent.headers)
+    response.timeout = None
+    return response
+
+@app.route("/api/outtimes")
+async def outtimes():
+    async def send_events():
+        #async with o.watch() as queue:
+        while True:
+                data = (app.config['maple'].outtime1.avg, app.config['maple'].outtime2.avg)
+                event = ServerSentEvent(json.dumps({'value': data}))
+                yield event.encode()
+                await asyncio.sleep(1)
+
+    response = await make_response(send_events(), ServerSentEvent.headers)
+    response.timeout = None
+    return response

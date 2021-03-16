@@ -1,0 +1,246 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+  <title>Process Flow</title>
+  <!-- Copyright 1998-2021 by Northwoods Software Corporation. -->
+  <meta name="description" content="A simple process flow or SCADA diagram editor, simulating equipment monitoring and control." />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <script src="/node_modules/gojs/release/go.js"></script>
+  <script src="/node_modules/gojs/extensions/Figures.js"></script>
+  <script src="../assets/js/goSamples.js"></script>  <!-- this is only for the GoJS Samples framework -->
+  <script id="code">
+    function init() {
+      if (window.goSamples) goSamples();  // init for these samples -- you don't need to call this
+      var $ = go.GraphObject.make;  // for more concise visual tree definitions
+
+      myDiagram =
+        $(go.Diagram, "myDiagramDiv",
+          {
+            "grid.visible": true,
+            "grid.gridCellSize": new go.Size(30, 20),
+            "draggingTool.isGridSnapEnabled": true,
+            "resizingTool.isGridSnapEnabled": true,
+            "rotatingTool.snapAngleMultiple": 90,
+            "rotatingTool.snapAngleEpsilon": 45,
+            "undoManager.isEnabled": true
+          });
+
+      // when the document is modified, add a "*" to the title and enable the "Save" button
+      myDiagram.addDiagramListener("Modified", function(e) {
+        var button = document.getElementById("SaveButton");
+        if (button) button.disabled = !myDiagram.isModified;
+        var idx = document.title.indexOf("*");
+        if (myDiagram.isModified) {
+          if (idx < 0) document.title += "*";
+        } else {
+          if (idx >= 0) document.title = document.title.substr(0, idx);
+        }
+      });
+
+      myDiagram.nodeTemplateMap.add("OneWay",
+        $(go.Node, "Vertical",
+          {
+            locationSpot: new go.Spot(0.5, 1, 0, -21), locationObjectName: "SHAPE",
+            selectionObjectName: "SHAPE", rotatable: true
+          },
+          new go.Binding("angle").makeTwoWay(),
+          new go.Binding("location", "pos", go.Point.parse).makeTwoWay(go.Point.stringify),
+          $(go.TextBlock,
+            { alignment: go.Spot.Center, textAlign: "center", margin: 5, editable: true },
+            new go.Binding("text").makeTwoWay(),
+            // keep the text upright, even when the whole node has been rotated upside down
+            new go.Binding("angle", "angle", function(a) { return a === 180 ? 180 : 0; }).ofObject()),
+          $(go.Shape, "Diode",
+            {
+              name: "SHAPE",
+              strokeWidth: 2,
+              fill: $(go.Brush, "Linear",
+                {
+                  start: go.Spot.Left, end: go.Spot.Right,
+                  0: "gray", 0.5: "white", 1: "gray"
+                }),
+              portId: "", fromSpot: new go.Spot(1, 0.5), toSpot: new go.Spot(0, 0.5),
+              width: 30, height: 30
+            }
+            )
+        ));
+
+      myDiagram.nodeTemplateMap.add("Process",
+        $(go.Node, "Auto",
+          {
+            locationSpot: new go.Spot(0.5, 0.5), locationObjectName: "SHAPE",
+            resizable: true, resizeObjectName: "SHAPE"
+          },
+          new go.Binding("location", "pos", go.Point.parse).makeTwoWay(go.Point.stringify),
+          $(go.Shape, "Cylinder1",
+            {
+              name: "SHAPE",
+              strokeWidth: 2,
+              fill: $(go.Brush, "Linear",
+                {
+                  start: go.Spot.Left, end: go.Spot.Right,
+                  0: "gray", 0.5: "white", 1: "gray"
+                }),
+              minSize: new go.Size(50, 50),
+              portId: "", fromSpot: go.Spot.AllSides, toSpot: go.Spot.AllSides
+            },
+            new go.Binding("desiredSize", "size", go.Size.parse).makeTwoWay(go.Size.stringify)),
+          $(go.TextBlock,
+            {
+              alignment: go.Spot.Center, textAlign: "center", margin: 5,
+              editable: true
+            },
+            new go.Binding("text").makeTwoWay())
+        ));
+
+      myDiagram.nodeTemplateMap.add("Pump",
+        $(go.Node, "Auto",
+          {
+            locationSpot: new go.Spot(0.5, 0.5), locationObjectName: "SHAPE",
+            resizable: true, resizeObjectName: "SHAPE"
+          },
+          new go.Binding("location", "pos", go.Point.parse).makeTwoWay(go.Point.stringify),
+          $(go.Shape, "CentrifugalPump",
+            {
+              name: "SHAPE",
+              strokeWidth: 2,
+              fill: $(go.Brush, "Linear",
+                {
+                  start: go.Spot.Left, end: go.Spot.Right,
+                  0: "gray", 0.5: "white", 1: "gray"
+                }),
+              minSize: new go.Size(50, 50),
+              portId: "", fromSpot: new go.Spot(1, 0.5), toSpot: new go.Spot(0, 0.5),
+              portId: "", fromSpot: go.Spot.AllSides, toSpot: go.Spot.AllSides
+            },
+            new go.Binding("desiredSize", "size", go.Size.parse).makeTwoWay(go.Size.stringify)),
+          $(go.TextBlock,
+            {
+              alignment: go.Spot.Center, textAlign: "center", margin: 5,
+              editable: true
+            },
+            new go.Binding("text").makeTwoWay())
+        ));
+
+      myDiagram.nodeTemplateMap.add("Valve",
+        $(go.Node, "Vertical",
+          {
+            locationSpot: new go.Spot(0.5, 1, 0, -21), locationObjectName: "SHAPE",
+            selectionObjectName: "SHAPE", rotatable: true
+          },
+          new go.Binding("angle").makeTwoWay(),
+          new go.Binding("location", "pos", go.Point.parse).makeTwoWay(go.Point.stringify),
+          $(go.TextBlock,
+            { alignment: go.Spot.Center, textAlign: "center", margin: 5, editable: true },
+            new go.Binding("text").makeTwoWay(),
+            // keep the text upright, even when the whole node has been rotated upside down
+            new go.Binding("angle", "angle", function(a) { return a === 180 ? 180 : 0; }).ofObject()),
+          $(go.Shape,
+            {
+              name: "SHAPE",
+              geometryString: "F1 M0 0 L40 20 40 0 0 20z M20 10 L20 30 M12 30 L28 30",
+              strokeWidth: 2,
+              fill: $(go.Brush, "Linear", { 0: "gray", 0.35: "white", 0.7: "gray" }),
+              portId: "", fromSpot: new go.Spot(1, 0.35), toSpot: new go.Spot(0, 0.35)
+            })
+        ));
+
+      myDiagram.linkTemplate =
+        $(go.Link,
+          { routing: go.Link.AvoidsNodes, curve: go.Link.JumpGap, corner: 10, reshapable: true, toShortLength: 7 },
+          new go.Binding("points").makeTwoWay(),
+          // mark each Shape to get the link geometry with isPanelMain: true
+          $(go.Shape, { isPanelMain: true, stroke: "black", strokeWidth: 7 }),
+          $(go.Shape, { isPanelMain: true, stroke: "gray", strokeWidth: 5 }),
+          $(go.Shape, { isPanelMain: true, stroke: "white", strokeWidth: 3, name: "PIPE", strokeDashArray: [10, 10] }),
+          $(go.Shape, { toArrow: "Triangle", scale: 1.3, fill: "gray", stroke: null })
+        );
+
+      load();
+
+      // Animate the flow in the pipes
+      var animation = new go.Animation();
+      animation.easing = go.Animation.EaseLinear;
+      myDiagram.links.each(function(link) {
+        animation.add(link.findObject("PIPE"), "strokeDashOffset", 20, 0)
+      });
+      // Run indefinitely
+      animation.runCount = Infinity;
+      animation.start();
+    }
+
+    function save() {
+      document.getElementById("mySavedModel").value = myDiagram.model.toJson();
+      myDiagram.isModified = false;
+    }
+    function load() {
+      myDiagram.model = go.Model.fromJson(document.getElementById("mySavedModel").value);
+    }
+  </script>
+
+</head>
+<body onload="init()">
+<div id="sample">
+  <div id="myDiagramDiv" style="border: solid 1px black; width:100%; height:500px"></div>
+  <p>
+    A <em>process flow diagram</em> is commonly used in chemical and process engineering to indicate the general flow of plant processes and equipment.
+    A simple SCADA diagram, with animation of the flow along the pipes, is implemented here.
+  </p>
+  <p>
+    The diagram displays the background grid layer by setting <b>grid.visible</b> to true,
+    and also allows snapping to the grid using <a>DraggingTool.isGridSnapEnabled</a>,
+    <a>ResizingTool.isGridSnapEnabled</a>, and <a>RotatingTool.snapAngleMultiple</a> alongside <a>RotatingTool.snapAngleEpsilon</a>.
+  </p>
+  <p>
+    There is also a custom animation that modifies the <a>Shape.strokeDashOffset</a> for each link.
+  </p>
+  <div>
+    <div>
+      <button id="SaveButton" onclick="save()">Save</button>
+      <button onclick="load()">Load</button>
+      Diagram Model saved in JSON format:
+    </div>
+    <textarea id="mySavedModel" style="width:100%;height:300px">
+{ "class": "GraphLinksModel",
+  "nodeDataArray": [
+{"key":"SAPSEP","category":"Process","pos":"600 440","text":"Sap Sep"},
+{"key":"WATER","category":"Process","pos":"150 480","text":"Water"},
+{"key":"FILTER","category":"Process","pos":"570 180","text":"Filter"},
+{"key":"RO","category":"Process","pos":"390 300","text":"RO"},
+{"key":"SAPRESERVOIR","category":"Process","pos":"150 400","text":"Sap Reserve Tank"},
+{"key":"SAPOUT","category":"Process","pos":"540 520","text":"Sap Store Tank"},
+{"key":"D1","category":"OneWay","pos":"210 260","text":"Check"},
+{"key":"D2","category":"OneWay","pos":"720 500","text":"Check"},
+{"key":"V1","category":"Pump","pos":"480 280","text":"RO Pump"},
+{"key":"VAC","category":"Pump","pos":"810 280","text":"Vac Pump"},
+{"key":"V2","category":"Valve","pos":"420 500","text":"VM","angle":90},
+{"key":"V3","category":"Pump","pos":"600 360","text":"V2","angle":180},
+{"key":"V4","category":"Valve","pos":"750 380","text":"VA","angle":180},
+{"key":"V5","category":"Valve","pos":"450 400","text":"VB","angle":90},
+{"key":"TREE","category":"Process","pos":"840 500","text":"Trees"}
+],
+  "linkDataArray": [
+{"from":"P1","to":"V1"},
+{"from":"D2","to":"SAPSEP","points":[736,505,746,505,746,448.6666666666667,693.4683837890625,448.6666666666667,640.936767578125,448.6666666666667,630.936767578125,448.6666666666667]},
+{"from":"TREE","to":"D2","points":[814,500,804,500,804,500,804,532,692,532,692,505,694,505,704,505]},
+{"from":"SAPSEP","to":"V3","points":[600,414,600,404,600,403.538916015625,631,403.538916015625,631,359.8,621,359.8]},
+{"from":"V3","to":"FILTER","points":[579,359.8,569,359.8,569,273.5,578.6666666666666,273.5,578.6666666666666,216,578.6666666666666,206]},
+{"from":"FILTER","to":"V1","points":[561.3333333333334,206,561.3333333333334,216,561.3333333333334,226.461083984375,449,226.461083984375,449,280.2,459,280.2]},
+{"from":"V1","to":"RO","points":[501,280.2,511,280.2,511,309,426,309,426,300,416,300]},
+{"from":"RO","to":"V5","points":[390,326,390,336,390,352.5,449.8,352.5,449.8,369,449.8,379]},
+{"from":"V5","to":"V2","points":[449.8,421,449.8,431,449.8,450,419.8,450,419.8,469,419.8,479]},
+{"from":"V2","to":"SAPOUT","points":[419.8,521,419.8,531,471.3173583984375,531,471.3173583984375,520,479.556884765625,520,489.556884765625,520]},
+{"from":"RO","to":"WATER","points":[364,300,354,300,354,300,354,480,186,480,176,480]},
+{"from":"V5","to":"SAPRESERVOIR","points":[449.8,421,449.8,431,313.5,431,313.5,400,219.11083984375,400,209.11083984375,400]},
+{"from":"SAPRESERVOIR","to":"D1","points":[150,374,150,364,150,265,167,265,184,265,194,265]},
+{"from":"D1","to":"FILTER","points":[226,265,236,265,236,265,236,180,534,180,544,180]},
+{"from":"SAPSEP","to":"V4"},
+{"from":"V4","to":"VAC"}
+]}
+
+    </textarea>
+  </div>
+</div>
+</body>
+</html>

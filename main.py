@@ -99,7 +99,9 @@ async def main():
         webapp.app.config['mainloop'] = mainloop
         webapp.app.config['maple'] = maple
         webapp.app.config['logqueuer'] = logqueue
-        new_loop.run_until_complete(webapp.app.run_task(host="0.0.0.0", port=8443, certfile='fullchain.pem', keyfile='privkey.pem', debug=True, shutdown_trigger=shutdown_event.wait))
+        new_loop.run_until_complete(webapp.app.run_task(host="0.0.0.0", port=8443, certfile='fullchain.pem', keyfile='privkey.pem', debug=False, use_reloader=False, shutdown_trigger=shutdown_event.wait))
+
+
       finally:
         # being off in another therad is nice and all, but hypercorn sems to choke on asyncio.run() over here, and run until complete doesn't shut down in the end
         # steal the shutdown code from asyncio.run
@@ -157,7 +159,7 @@ if __name__ == "__main__":
 
 
   try:
-    await maple.run()
+    await maple.wait()
   finally:
     if webloop:
       webloop.call_soon_threadsafe(webshut.set)
