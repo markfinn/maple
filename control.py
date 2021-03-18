@@ -11,6 +11,7 @@ import time
 import fcntl
 import rpiadc
 import math
+import sqlite3
 
 ######################################################3
 class AsyncDigitalInputDevice(gpiozero.DigitalInputDevice):
@@ -210,6 +211,19 @@ class Maple():
 
     wd_task = asyncio.ensure_future(wd_alive())
 
+    db = sqlite3.Connection('/home/mark/maple/db.sq3')
+    db.execute('''
+CREATE TABLE IF NOT EXISTS events (
+    time REAL NOT NULL,
+    type TEXT NOT NULL,
+    state TEXT
+);''')
+
+
+#    def event(type, state, time=None):
+#      if time is None:
+#        time = timemod.time()
+#      db.execute('insert into events (time, type, state) VALUES (?,?,?)', (time, type, state)
 
 
     self.syruprecerc = OverridableDigitalOutputDevice(7, active_high=False)
