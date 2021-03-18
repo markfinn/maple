@@ -177,3 +177,17 @@ async def outtimes():
     response = await make_response(send_events(), ServerSentEvent.headers)
     response.timeout = None
     return response
+
+@app.route("/api/rotimes")
+async def rotimes():
+    async def send_events():
+        #async with o.watch() as queue:
+        while True:
+                data = (app.config['maple'].rotime1.avg, app.config['maple'].rotime2.avg)
+                event = ServerSentEvent(json.dumps({'value': data}))
+                yield event.encode()
+                await asyncio.sleep(1)
+
+    response = await make_response(send_events(), ServerSentEvent.headers)
+    response.timeout = None
+    return response

@@ -177,7 +177,7 @@ class onoffaverager():
       return
     now = time.time()
     dt = now-self.lastchange
-    v=1 if self.state else 0
+    v= float(self.state)
     x = 1-math.exp(-dt/self.tc)
 #    print(self.val, v, x, (v-self.val) * x)
     self.val += (v-self.val) * x
@@ -228,27 +228,24 @@ class Maple():
     self.recfloat = AsyncDigitalInputDevice(16, pull_up=True, active_state=None, invert=True)
     self.dontlose=rpiadc.start()
 
-    self.saptime1 = onoffaverager(state=self.sapvac.value)
-    self.saptime2 = onoffaverager(state=self.sapvac.value)
-    async def saptime_watch_task():
-      async with self.sapvac.watch() as q:
-        while True:
-          v = await q.get()
-          self.saptime1.setstate(v[1])
-          v = v[1] if v[0] == 2 else v[0]
-          self.saptime2.setstate(v)
-    saptime_watch_task_t = watchedtask(saptime_watch_task())
 
-    self.outtime1 = onoffaverager(state=self.outvalve.value)
-    self.outtime2 = onoffaverager(state=self.outvalve.value)
-    async def outtime_watch_task():
-      async with self.outvalve.watch() as q:
-        while True:
-          v = await q.get()
-          self.outtime1.setstate(v[1])
-          v = v[1] if v[0] == 2 else v[0]
-          self.outtime2.setstate(v)
-    outtime_watch_task_t = watchedtask(outtime_watch_task())
+    def avgout(output):
+      t1 = onoffaverager(state=output.value)
+      t2 = onoffaverager(state=output.value if output.overmode == 2 else output.overmode)
+      async def outtime_watch_task():
+        async with output.watch() as q:
+          while True:
+            v = await q.get()
+            t1.setstate(v[1])
+            v = v[1] if v[0] == 2 else v[0]
+            t2.setstate(v)
+      task_t = watchedtask(outtime_watch_task())
+      return t1,t2
+      
+    self.saptime1, self.saptime2 = avgout(self.sapvac)
+    self.outtime1, self.outtime2 = avgout(self.outvalve)
+    self.rotime1, self.rotime2 = avgout(self.rossr)
+
 
 
     async def task_pressure():
@@ -295,6 +292,7 @@ class Maple():
         self.sapvac.on()
         await self.sapfloat.wait_for_inactive(120)
       self.syruprecerc.on()
+      log.info('drained')
 
 
       while True:
