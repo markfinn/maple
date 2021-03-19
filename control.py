@@ -243,6 +243,9 @@ CREATE TABLE IF NOT EXISTS events (
     self.dontlose=rpiadc.start()
 
 
+    self.setpressure = 0
+
+
     def avgout(output):
       t1 = onoffaverager(state=output.value)
       t2 = onoffaverager(state=output.value if output.overmode == 2 else output.overmode)
@@ -263,9 +266,9 @@ CREATE TABLE IF NOT EXISTS events (
 
 
     async def task_pressure():
+#    self.setpressure = 0
       self.romain.on()
       self.primepump.on()
-      self.rossr.value = 1
       avg=None
       t=0
       while True:
@@ -277,9 +280,9 @@ CREATE TABLE IF NOT EXISTS events (
           now = time.time()
           if now-t>.2:
             t=now
-            psi = ((avg*(10+6.2)/10)-.5)*200/4
+            psi = max(0, ((avg*(10+6.2)/10)-.5)*200/4)
             self.pressure = psi
-            if psi > 125:
+            if psi > self.setpressure:
               self.rossr.off()
             else:
               self.rossr.on()
@@ -301,8 +304,15 @@ CREATE TABLE IF NOT EXISTS events (
 
 
     async def task_sap():
+      if self.recfloat:
+        log.info('repriming')
+        self.setpressure = 125
+        self.syruprecerc.on()
+        await self.recfloat.wait_for_inactive(400)
+        
       if self.sapfloat.value:
         log.info('draining')
+        self.setpressure = 125
         self.sapvac.on()
         await self.sapfloat.wait_for_inactive(120)
       self.syruprecerc.on()
