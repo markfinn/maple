@@ -19,6 +19,9 @@ export default {
       es.onmessage = (event) => {
         const data = JSON.parse(event.data)
         value.value = data['value'];
+	if (Array.isArray(value.value) && value.value.length==2) {
+		value.value = [Math.round(value.value[0]*100), Math.round(value.value[1]*100)];
+	}
       }
     });
     return {
