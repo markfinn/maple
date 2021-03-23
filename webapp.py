@@ -3,6 +3,7 @@ import os
 from quart import Quart, redirect, abort, make_response, request, json
 from quart_cors import cors
 import control
+import time
 
 app = Quart(__name__)
 app = cors(app, allow_origin='http://maple.bluesparc.net:3000')#  '*' works too
@@ -197,7 +198,10 @@ async def extratimes():
     async def send_events():
         # async with o.watch() as queue:
         while True:
-            data = (app.config['maple'].at_pressure_time, app.config['maple'].runingTimeWithFloatOff)
+            t1 = app.config['maple'].at_pressure_time
+            if t1 is not None:
+              t1 = time.time() - t1
+            data = (t1, app.config['maple'].runingTimeWithFloatOff)
             event = ServerSentEvent(json.dumps({'value': data}))
             yield event.encode()
             await asyncio.sleep(1)

@@ -217,7 +217,7 @@ class Maple():
   RUN = 2
   def __init__(self):
     self._waiter = asyncio.Event()
-    self.state = RUN
+    self.state = Maple.RUN
 
     db = sqlite3.Connection('/home/mark/maple/db.sq3')
     db.execute('''
@@ -232,6 +232,8 @@ CREATE TABLE IF NOT EXISTS events (
     #        time = timemod.time()
     #      db.execute('insert into events (time, type, state) VALUES (?,?,?)', (time, type, state)
 
+
+
     log.info('Setting Watchdog')
     watchdog = watchdogdev.watchdog('/dev/watchdog')
     watchdog.set_timeout(5)
@@ -244,7 +246,7 @@ CREATE TABLE IF NOT EXISTS events (
         await asyncio.sleep(1)
 
     wd_task = asyncio.ensure_future(wd_alive())
-
+#    watchdog.magic_close()
 
 
     self.vacpump = OverridableDigitalOutputDevice(12, active_high=True)
@@ -294,10 +296,10 @@ CREATE TABLE IF NOT EXISTS events (
       self.runingTimeWithFloatOff = 0
       last = None
       while True:
-        if self.rofloat.value():
+        if self.rofloat.value:
           self.runingTimeWithFloatOff = 0
           last = None
-        elif self.rossr.value():
+        elif self.rossr.value:
           now = time.time()
           if last is not None:
             self.runingTimeWithFloatOff += now - last
@@ -316,7 +318,7 @@ CREATE TABLE IF NOT EXISTS events (
           if self.at_pressure_time is None:
             self.at_pressure_time = time.time()
         else:
-          if self.rofloat.value() or self.runingTimeWithFloatOff < 15:
+          if self.rofloat.value or self.runingTimeWithFloatOff < 25:
             self.rossr.on()
           else:
             self.rossr.off()
@@ -419,11 +421,11 @@ CREATE TABLE IF NOT EXISTS events (
         self.waterrecerc.off()
         self.waterrecerc.overmode = 0
 
-        watchdog.keep_alive()
+        await watchdog.keep_alive()
         wd_task.cancel()
         watchdog.magic_close()
         log.info('Shutdown')
-        self.changestate(SHUTDOWN)
+        self.changestate(Maple.SHUTDOWN)
 
     cleanup_task_t = watchedtask(cleanup_task())
 
