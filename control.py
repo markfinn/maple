@@ -9,9 +9,11 @@ import contextlib
 import collections
 import time
 import fcntl
-import rpiadc
 import math
 import sqlite3
+import Adafruit_ADS1x15
+
+
 
 ######################################################3
 class AsyncDigitalInputDevice(gpiozero.DigitalInputDevice):
@@ -240,7 +242,8 @@ CREATE TABLE IF NOT EXISTS events (
     self.sapfloathigh = AsyncDigitalInputDevice(8, pull_up=True, active_state=None)
     self.sapfloat = AsyncDigitalInputDevice(18, pull_up=True, active_state=None)
     self.recfloat = AsyncDigitalInputDevice(16, pull_up=True, active_state=None, invert=True)
-    self.dontlose=rpiadc.start()
+    self.iicadc = Adafruit_ADS1x15.ADS1015()
+
 
 
     self.setpressure = 0
@@ -272,21 +275,23 @@ CREATE TABLE IF NOT EXISTS events (
       avg=None
       t=0
       while True:
-        if rpiadc.value is not None:
+
+          v = self.iicadc.read_adc(0, gain=1)/500#4.096, but dont exceede 3.3 (+.3?)
           if avg is None:
-            avg = rpiadc.value['adc0']
+            avg = v
           else:
-            avg = avg*.75+.25*rpiadc.value['adc0']
+            avg = avg*.75+.25*v
           now = time.time()
           if now-t>.2:
             t=now
-            psi = max(0, ((avg*(10+6.2)/10)-.5)*200/4)
+            psi = max(0, ((avg*(47+10)/47)-.5)*200/4) + 6#10?!?!?
+            #print(v, avg, psi)
             self.pressure = psi
             if psi > self.setpressure:
               self.rossr.off()
             else:
               self.rossr.on()
-        await asyncio.sleep(.051)
+          await asyncio.sleep(.051)
 
     task_pressure_t = watchedtask(task_pressure())
 
@@ -314,7 +319,7 @@ CREATE TABLE IF NOT EXISTS events (
         log.info('draining')
         self.setpressure = 125
         self.sapvac.on()
-        await self.sapfloat.wait_for_inactive(120)
+        await self.sapfloat.wait_for_inactive(500)
       self.syruprecerc.on()
       log.info('drained')
 
