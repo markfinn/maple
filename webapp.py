@@ -141,7 +141,7 @@ async def tempins():
     async def send_events():
         #async with o.watch() as queue:
         while True:
-                data = (app.config['maple'].sapfloat.value, app.config['maple'].sapfloathigh.value, app.config['maple'].recfloat.value)
+                data = (app.config['maple'].sapfloat.value, app.config['maple'].sapfloathigh.value, app.config['maple'].rofloat.value)
                 event = ServerSentEvent(json.dumps({'value': data}))
                 yield event.encode()
                 await asyncio.sleep(.3)
@@ -187,6 +187,20 @@ async def rotimes():
                 event = ServerSentEvent(json.dumps({'value': data}))
                 yield event.encode()
                 await asyncio.sleep(1)
+
+    response = await make_response(send_events(), ServerSentEvent.headers)
+    response.timeout = None
+    return response
+
+@app.route("/api/extratimes")
+async def extratimes():
+    async def send_events():
+        # async with o.watch() as queue:
+        while True:
+            data = (app.config['maple'].at_pressure_time, app.config['maple'].runingTimeWithFloatOff)
+            event = ServerSentEvent(json.dumps({'value': data}))
+            yield event.encode()
+            await asyncio.sleep(1)
 
     response = await make_response(send_events(), ServerSentEvent.headers)
     response.timeout = None

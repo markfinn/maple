@@ -18,10 +18,14 @@ export default {
       var es = new EventSource(`${props.url}`);
       es.onmessage = (event) => {
         const data = JSON.parse(event.data)
-        value.value = data['value'];
-	if (Array.isArray(value.value) && value.value.length==2) {
-		value.value = [Math.round(value.value[0]*100), Math.round(value.value[1]*100)];
-	}
+        var v = data['value'];
+      	if (Array.isArray(v)) {
+      	  v = v.map(x => (typeof(x) == 'number') ? Math.round(x*100)/100 : x)
+      	}
+      	else if (typeof(v) == 'number') {
+      	  v = Math.round(v*100)/100;
+        }
+		    value.value = v;
       }
     });
     return {

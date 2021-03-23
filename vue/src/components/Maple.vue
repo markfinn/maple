@@ -10,6 +10,7 @@
   <Gauge url="https://maple.bluesparc.net:8443/api/saptimes"/><br>
   <Gauge url="https://maple.bluesparc.net:8443/api/rotimes"/><br>
   <Gauge url="https://maple.bluesparc.net:8443/api/outtimes"/><br>
+  <Gauge url="https://maple.bluesparc.net:8443/api/extratimes"/><br>
   <Inputs/>
   <Outputs/>
   <Log/>

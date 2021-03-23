@@ -168,7 +168,7 @@ def watchedtask(aw, *, allowFinish=False):
 
 
 
-class onoffaverager():
+class OnOffAverager():
   def __init__(self, *, state=False, initial=0, tc=300):
     self.val = initial
     self.tc=tc
@@ -194,11 +194,43 @@ class onoffaverager():
     v=1 if self.state else 0
     x = 1-math.exp(-dt/self.tc)
     return self.val + (v-self.val) * x
-    
+
+  @classmethod
+  def avgOfOutput(cls, output):
+    t1 = cls(state=output.value)
+    t2 = cls(state=output.value if output.overmode == 2 else output.overmode)
+
+    async def outtime_watch_task():
+      async with output.watch() as q:
+        while True:
+          v = await q.get()
+          t1.setstate(v[1])
+          v = v[1] if v[0] == 2 else v[0]
+          t2.setstate(v)
+
+    task_t = watchedtask(outtime_watch_task())
+    return t1, t2
+
 
 class Maple():
+  SHUTDOWN = 1
+  RUN = 2
   def __init__(self):
     self._waiter = asyncio.Event()
+    self.state = RUN
+
+    db = sqlite3.Connection('/home/mark/maple/db.sq3')
+    db.execute('''
+CREATE TABLE IF NOT EXISTS events (
+    time REAL NOT NULL,
+    type TEXT NOT NULL,
+    state TEXT
+);''')
+
+    #    def event(type, state, time=None):
+    #      if time is None:
+    #        time = timemod.time()
+    #      db.execute('insert into events (time, type, state) VALUES (?,?,?)', (time, type, state)
 
     log.info('Setting Watchdog')
     watchdog = watchdogdev.watchdog('/dev/watchdog')
@@ -213,117 +245,101 @@ class Maple():
 
     wd_task = asyncio.ensure_future(wd_alive())
 
-    db = sqlite3.Connection('/home/mark/maple/db.sq3')
-    db.execute('''
-CREATE TABLE IF NOT EXISTS events (
-    time REAL NOT NULL,
-    type TEXT NOT NULL,
-    state TEXT
-);''')
 
 
-#    def event(type, state, time=None):
-#      if time is None:
-#        time = timemod.time()
-#      db.execute('insert into events (time, type, state) VALUES (?,?,?)', (time, type, state)
-
-
-    self.syruprecerc = OverridableDigitalOutputDevice(7, active_high=False)
-    self.outvalve = OverridableDigitalOutputDevice(25, active_high=False)
+    self.vacpump = OverridableDigitalOutputDevice(12, active_high=True)
+    self.airvac = OverridableDigitalOutputDevice(14, active_high=False)
     self.sapvac = OverridableDigitalOutputDevice(15, active_high=False)
+
     self.romain = OverridableDigitalOutputDevice(23, active_high=False)
     self.rossr = OverridableDigitalOutputDevice(24, active_high=True, frequency=1, factory = gpiozero.PWMOutputDevice)
-    self.airvac = OverridableDigitalOutputDevice(14, active_high=False)
-    self.vacpump = OverridableDigitalOutputDevice(12, active_high=True)
+
+    self.outpump = OverridableDigitalOutputDevice(25, active_high=False)
+
+    #dontexist
+    self.syruprecerc = OverridableDigitalOutputDevice(7, active_high=False)
     self.waterrecerc = OverridableDigitalOutputDevice(1, active_high=False)
-    self.primepump = OverridableDigitalOutputDevice(20, active_high=False)
+    #self.primepump = OverridableDigitalOutputDevice(20, active_high=False)
 
 
     self.sapfloathigh = AsyncDigitalInputDevice(8, pull_up=True, active_state=None)
     self.sapfloat = AsyncDigitalInputDevice(18, pull_up=True, active_state=None)
-    self.recfloat = AsyncDigitalInputDevice(16, pull_up=True, active_state=None, invert=True)
+    self.rofloat = AsyncDigitalInputDevice(16, pull_up=True, active_state=None, invert=True)
     self.iicadc = Adafruit_ADS1x15.ADS1015()
 
+    self.setpressure = 125
+    self.at_pressure_time = None
+    self.runingTimeWithFloatOff = 0
 
+    self.saptime1, self.saptime2 = OnOffAverager.avgOfOutput(self.sapvac)
+    self.outtime1, self.outtime2 = OnOffAverager.avgOfOutput(self.outpump)
+    self.rotime1, self.rotime2 = OnOffAverager.avgOfOutput(self.rossr)
 
-    self.setpressure = 0
-
-
-    def avgout(output):
-      t1 = onoffaverager(state=output.value)
-      t2 = onoffaverager(state=output.value if output.overmode == 2 else output.overmode)
-      async def outtime_watch_task():
-        async with output.watch() as q:
-          while True:
-            v = await q.get()
-            t1.setstate(v[1])
-            v = v[1] if v[0] == 2 else v[0]
-            t2.setstate(v)
-      task_t = watchedtask(outtime_watch_task())
-      return t1,t2
-      
-    self.saptime1, self.saptime2 = avgout(self.sapvac)
-    self.outtime1, self.outtime2 = avgout(self.outvalve)
-    self.rotime1, self.rotime2 = avgout(self.rossr)
-
-
-
-    async def task_pressure():
-#    self.setpressure = 0
-      self.romain.on()
-      self.primepump.on()
-      avg=None
-      t=0
+    async def task_pressure_read():
+      avg = None
+      t = 0
       while True:
+        v = self.iicadc.read_adc(0, gain=1) / 500  # 4.096, but dont exceede 3.3 (+.3?)
+        if avg is None:
+          avg = v
+        else:
+          avg = avg * .85 + .15 * v
+        psi = max(0, ((avg * (47 + 10) / 47) - .5) * 200 / 4) + 6  # 10?!?!?
+        self.pressure = psi
+        await asyncio.sleep(.05)
 
-          v = self.iicadc.read_adc(0, gain=1)/500#4.096, but dont exceede 3.3 (+.3?)
-          if avg is None:
-            avg = v
-          else:
-            avg = avg*.75+.25*v
+    task_pressure_read_t = watchedtask(task_pressure_read())
+
+    async def task_levelwatch():
+      self.runingTimeWithFloatOff = 0
+      last = None
+      while True:
+        if self.rofloat.value():
+          self.runingTimeWithFloatOff = 0
+          last = None
+        elif self.rossr.value():
           now = time.time()
-          if now-t>.2:
-            t=now
-            psi = max(0, ((avg*(47+10)/47)-.5)*200/4) + 6#10?!?!?
-            #print(v, avg, psi)
-            self.pressure = psi
-            if psi > self.setpressure:
-              self.rossr.off()
-            else:
-              self.rossr.on()
-          await asyncio.sleep(.051)
+          if last is not None:
+            self.runingTimeWithFloatOff += now - last
+          last = now
+        await asyncio.sleep(.09)
 
-    task_pressure_t = watchedtask(task_pressure())
+    task_levelwatch_t = watchedtask(task_levelwatch())
+
+
+    async def task_ropump():
+      #    self.setpressure = 0
+      self.romain.on()
+      while True:
+        if self.pressure > self.setpressure:
+          self.rossr.off()
+          if self.at_pressure_time is None:
+            self.at_pressure_time = time.time()
+        else:
+          if self.rofloat.value() or self.runingTimeWithFloatOff < 15:
+            self.rossr.on()
+          else:
+            self.rossr.off()
+          if self.pressure < self.setpressure - 10:
+            self.at_pressure_time = None
+
+        await asyncio.sleep(.2)
+
+    task_ropump_t = watchedtask(task_ropump())
+
 
     async def task_output():
-      await self.recfloat.wait_for_inactive(120)
       while True:
-        await self.recfloat.wait_for_active()
-        self.outvalve.on()
-        await self.recfloat.wait_for_inactive(360)
-        self.outvalve.off()
+        if self.at_pressure_time is not None and time.time()-self.at_pressure_time > 30:
+          self.outpump.on()
+        else:
+          self.outpump.off()
+        await asyncio.sleep(.2)
 
     task_output_t = watchedtask(task_output())
 
 
-
-
     async def task_sap():
-      if self.recfloat:
-        log.info('repriming')
-        self.setpressure = 125
-        self.syruprecerc.on()
-        await self.recfloat.wait_for_inactive(400)
-        
-      if self.sapfloat.value:
-        log.info('draining')
-        self.setpressure = 125
-        self.sapvac.on()
-        await self.sapfloat.wait_for_inactive(500)
-      self.syruprecerc.on()
-      log.info('drained')
-
-
       while True:
         log.info('Sap Pump off')
         self.sapvac.off()
@@ -398,23 +414,30 @@ CREATE TABLE IF NOT EXISTS events (
         self.rossr.overmode = 0
         self.syruprecerc.off()
         self.syruprecerc.overmode = 0
-        self.outvalve.off()
-        self.outvalve.overmode = 0
+        self.outpump.off()
+        self.outpump.overmode = 0
         self.waterrecerc.off()
         self.waterrecerc.overmode = 0
-        self.primepump.off()
-        self.primepump.overmode = 0
 
         watchdog.keep_alive()
         wd_task.cancel()
         watchdog.magic_close()
         log.info('Shutdown')
-        self._waiter.set()
-
+        self.changestate(SHUTDOWN)
 
     cleanup_task_t = watchedtask(cleanup_task())
 
-  @property
-  def wait(self):
-    return self._waiter.wait
+  def changestate(self, newstate):
+    self.state = newstate
+    self._waiter.set()
+    self._waiter.clear()
+
+  async def wait(self, state=None):
+    if state is not None and self.state == state:
+        return
+    while 1:
+      await self._waiter.wait()
+      if state is None or self.state == state:
+        return
+
     

@@ -159,7 +159,7 @@ if __name__ == "__main__":
 
 
   try:
-    await maple.wait()
+    await maple.wait(Maple.SHUTDOWN)
   finally:
     if webloop:
       webloop.call_soon_threadsafe(webshut.set)
