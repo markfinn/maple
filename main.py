@@ -30,12 +30,6 @@ log.addHandler(ch)
 async def main():
 
 
-  lock_file_pointer = os.open(f"/tmp/instance_maple.lock", os.O_WRONLY|os.O_CREAT|os.O_TRUNC)
-  try:
-    fcntl.lockf(lock_file_pointer, fcntl.LOCK_EX | fcntl.LOCK_NB)
-  except IOError:
-    log.error('already running another copy')
-    raise
 
   log.info('Starting')
 
@@ -167,6 +161,18 @@ if __name__ == "__main__":
 
 ######################################################3
 if __name__ == '__main__':
+  lock_file_pointer = os.open(f"/tmp/instance_maple.lock", os.O_WRONLY|os.O_CREAT|os.O_TRUNC)
+  try:
+    fcntl.lockf(lock_file_pointer, fcntl.LOCK_EX | fcntl.LOCK_NB)
+  except IOError:
+    log.error('already running another copy')
+    raise
+  os.write(lock_file_pointer, str(os.getpid()).encode())
+  os.fsync(lock_file_pointer)
 
-  asyncio.run(main())
+  try:
+    asyncio.run(main())
+  finally:
+    fcntl.lockf(lock_file_pointer, fcntl.LOCK_UN)
+    os.close(lock_file_pointer)
 
