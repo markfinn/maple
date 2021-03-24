@@ -1,7 +1,6 @@
 import gpiozero
 import asyncio
 import sys
-import threading
 import contextlib
 import time
 import math
@@ -28,12 +27,11 @@ class AsyncDigitalInputDevice(gpiozero.DigitalInputDevice):
       v = not v
     return v
 
-  async def wait_for_active(self, timeout=None, *, inverse=False, loop=None):
+  async def wait_for_active(self, timeout=None, *, inverse=False):
     #gpiozero is EDGE only, not level...  I want to stop eaiting on either
     if self.value == (not inverse):
       return
-    if loop is None:
-      loop = asyncio.get_event_loop()
+    loop = asyncio.get_event_loop()
     f = loop.create_future()
     install = not self._awaiters
     self._awaiters.add(f)
@@ -68,13 +66,12 @@ class AsyncDigitalInputDevice(gpiozero.DigitalInputDevice):
 
   @contextlib.asynccontextmanager
   async def watch(self):
-    loop = asyncio.get_event_loop()
-    queue = asyncio.Queue(loop=loop)
+    queue = asyncio.Queue()
     v = self.value
     await queue.put((2, v))
     async def loopfunc():
       while True:
-        await self.wait_for_active(inverse=v, loop=loop)
+        await self.wait_for_active(inverse=v)
         v = not v
         await queue.put((2, v))
     try:
@@ -91,7 +88,7 @@ class OverridableDigitalOutputDevice():
     self._dev = factory(*args, **kwargs)
     self._overmode = 2#auto
     self._value = self._dev.value
-    self._watchers = {}
+    self._watchers = set()
 
   def on(self):
     self.value = 1
@@ -127,18 +124,17 @@ class OverridableDigitalOutputDevice():
 
   @contextlib.asynccontextmanager
   async def watch(self):
-    loop = asyncio.get_event_loop()
-    queue = asyncio.Queue(loop=loop)
-    self._watchers[queue]=loop
+    queue = asyncio.Queue()
+    self._watchers.add(queue)
     try:
       await queue.put((self._overmode, self._value))
       yield queue
     finally:
-      del self._watchers[queue]
+      self._watchers.remove(queue)
 
   def _notify(self):
-    for queue, loop in list(self._watchers.items()):
-      loop.call_soon_threadsafe(asyncio.create_task, queue.put((self._overmode, self._value)))
+    for queue in list(self._watchers):
+      asyncio.create_task(queue.put((self._overmode, self._value)))
 
   def __str__(self):
     if self._overmode == 2:
@@ -147,11 +143,10 @@ class OverridableDigitalOutputDevice():
       return '%s <Overridden to %s>'%(self._value, self._overmode)
 
 class WatchableExpression():
-  def __init__(self, exprfunc, loop=None, tolerance=None, **kwargs):
+  def __init__(self, exprfunc, tolerance=None, **kwargs):
     self.exprfunc = exprfunc
     self.kwargs = kwargs
-    self._watchers = {}
-    self.loop = loop if loop is not None else asyncio.get_event_loop()
+    self._watchers = set()
     self.tolerance = tolerance
 
   @property
@@ -161,11 +156,10 @@ class WatchableExpression():
 
   @contextlib.asynccontextmanager
   async def watch(self):
-    loop = asyncio.get_event_loop()
-    queue = asyncio.Queue(loop=loop)
+    queue = asyncio.Queue()
     needinstall = not self._watchers
     vnow = self.value
-    self._watchers[queue]=loop
+    self._watchers.add(queue)
     if needinstall:
       async def wloop():
         nonlocal vnow
@@ -179,16 +173,16 @@ class WatchableExpression():
               continue
             if type(v) != type(vnow) or not self.tolerance or abs(vnow - v) > self.tolerance:
               vnow = v
-              for queue, loop in list(self._watchers.items()):
-                loop.call_soon_threadsafe(asyncio.create_task, queue.put(v))
-      self.wloop_task = watchedtask(wloop(), loop=loop) #no mater who watches first, make sure the task sits on it main loop to minimize thread thrash
+              for queue in list(self._watchers):
+                asyncio.create_task(queue.put(v))
+      self.wloop_task = watchedtask(wloop())
       
 
     try:
       await queue.put(vnow)
       yield queue
     finally:
-      del self._watchers[queue]
+      self._watchers.remove(queue)
       if not self._watchers:
         self.wloop_task.cancel()
         del self.wloop_task
@@ -233,7 +227,7 @@ class ADCPoll(WatchableExpression):
       if self.t:
         self.t.cancel()
 
-  def __init__(self, adc, channel, *, tolerance=None, samplePeriod=.1, tc=0, scalefunc=None, loop=None):
+  def __init__(self, adc, channel, *, tolerance=None, samplePeriod=.1, tc=0, scalefunc=None):
     avg = None
     def valuefunc(valAndTime):
       nonlocal avg
@@ -253,24 +247,21 @@ class ADCPoll(WatchableExpression):
       return val
 
     self.innerADC = ADCPoll.InnerADC(adc, channel, samplePeriod)
-    super().__init__(valuefunc, valAndTime=self.innerADC, loop=loop, tolerance=tolerance)
+    super().__init__(valuefunc, valAndTime=self.innerADC, tolerance=tolerance)
 
   def __del__(self):
     del self.innerADC
 
 
 
-def watchedtask(aw, *, allowFinish=False, loop=None):
+def watchedtask(aw, *, allowFinish=False):
   def test(f):
     if f.cancelled():
       return
     if f.exception() is not None or not allowFinish:
       log.error('Task died', exc_info=f.exception())
       sys.exit(1)
-  if loop is None:
-    t = asyncio.create_task(aw)
-  else:
-    t = loop.create_task(aw)
+  t = asyncio.create_task(aw)
   t.add_done_callback(test)
   return t
 
@@ -319,7 +310,23 @@ class OnOffAverager():
     task_t = watchedtask(outtime_watch_task())
     return t1, t2
 
+def runinotherloop(coro, loop):
+  return asyncio.wrap_future(asyncio.run_coroutine_threadsafe(coro, loop))
+
+
+@contextlib.asynccontextmanager
+async def awithinotherloop(coro, loop):
+  x = await runinotherloop(coro.__aenter__(), loop)
+  try:
+    yield x
+  except:
+    if not await runinotherloop(coro.__aexit__(*sys.exc_info()), loop):
+      raise
+  else:
+    await runinotherloop(coro.__aexit__(None, None, None), loop)
+
 #fix the thread prob
 # fix the "adc doesnt fire every sample, so averager wont update value issue
+#MAKE INPUTS WORK ON WEB
 #make onofavger watchable and use it
 #make a time based watchable and use it

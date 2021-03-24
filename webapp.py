@@ -1,9 +1,11 @@
+import sys
 import asyncio
-import os
+import contextlib
 from quart import Quart, redirect, abort, make_response, request, json
 from quart_cors import cors
 import control
 import time
+import util
 
 app = Quart(__name__)
 app = cors(app, allow_origin='http://maple.bluesparc.net:3000')#  '*' works too
@@ -61,13 +63,21 @@ async def poweroff():
     stdout, stderr = await p.communicate()
     return stdout + stderr
 
+
+def runinmainloop(coro):
+    return util.runinotherloop(coro, app.config['mainloop'])
+
+def awithinmainloop(coro):
+    return util.awithinotherloop(coro, app.config['mainloop'])
+
+
 @app.route("/api/log")
 async def log():
     skipto = request.headers.get("Last-Event-ID")
     async def send_events():
-        async with app.config['logqueuer'].watch() as queue:
+        async with awithinmainloop(app.config['logqueuer'].watch()) as queue:
             while True:
-                evid, data = await queue.get()
+                evid, data = await runinmainloop(queue.get())
                 if skipto is not None and evid <= skipto:
                   continue
                 event = ServerSentEvent(data, id=evid)
@@ -96,13 +106,15 @@ async def outputs(which):
             val = await request.json
             val = val['value']
 #        val = await request.get_data()
-        o.overmode = val
+        async def seto(o, v):
+            o.overmode = v
+        await runinmainloop(seto(o, val))
         return {'overmode': o._overmode, 'value': o._value}
 
     async def send_events():
-        async with o.watch() as queue:
+        async with awithinmainloop(o.watch()) as queue:
             while True:
-                data = await queue.get()
+                data = await runinmainloop(queue.get())
                 event = ServerSentEvent(json.dumps({'overmode': data[0], 'value': data[1]}))
                 yield event.encode()
 
@@ -114,21 +126,24 @@ async def outputs(which):
 @app.route("/api/outputs", endpoint='outputsls')
 async def outputsls():
     response = {}
+
+    async def stro(o):
+        return str(o)
+
     for n in dir(app.config['maple']):
         o = getattr(app.config['maple'], n)
-        if request.endpoint=='outputsls' and isinstance(o, control.OverridableDigitalOutputDevice):
-            response[n] = str(o)
-        elif request.endpoint=='inputsls' and isinstance(o, control.AsyncDigitalInputDevice):
-            response[n] = str(o)
+        if request.endpoint=='outputsls' and isinstance(o, control.OverridableDigitalOutputDevice) or \
+                request.endpoint=='inputsls' and isinstance(o, control.AsyncDigitalInputDevice):
+            response[n] = await runinmainloop(stro(o))
 
     return response
 
 @app.route("/api/pressure")
 async def pressure():
     async def send_events():
-        async with app.config['maple'].pressure.watch() as queue:
+        async with awithinmainloop(app.config['maple'].pressure.watch()) as queue:
             while True:
-                data = await queue.get()
+                data = await runinmainloop(queue.get())
                 event = ServerSentEvent(json.dumps({'value': data}))
                 yield event.encode()
 
@@ -139,7 +154,7 @@ async def pressure():
 @app.route("/api/ins")
 async def tempins():
     async def send_events():
-        #async with o.watch() as queue:
+        #async with awithinmainloop(o.watch()) as queue:
         while True:
                 data = (app.config['maple'].sapfloat.value, app.config['maple'].sapfloathigh.value, app.config['maple'].rofloat.value)
                 event = ServerSentEvent(json.dumps({'value': data}))
@@ -153,7 +168,7 @@ async def tempins():
 @app.route("/api/saptimes")
 async def saptimes():
     async def send_events():
-        #async with o.watch() as queue:
+        #async with awithinmainloop(o.watch()) as queue:
         while True:
                 data = (app.config['maple'].saptime1.avg, app.config['maple'].saptime2.avg)
                 event = ServerSentEvent(json.dumps({'value': data}))
@@ -167,7 +182,7 @@ async def saptimes():
 @app.route("/api/outtimes")
 async def outtimes():
     async def send_events():
-        #async with o.watch() as queue:
+        #async with awithinmainloop(o.watch()) as queue:
         while True:
                 data = (app.config['maple'].outtime1.avg, app.config['maple'].outtime2.avg)
                 event = ServerSentEvent(json.dumps({'value': data}))
@@ -181,7 +196,7 @@ async def outtimes():
 @app.route("/api/rotimes")
 async def rotimes():
     async def send_events():
-        #async with o.watch() as queue:
+        #async with awithinmainloop(o.watch()) as queue:
         while True:
                 data = (app.config['maple'].rotime1.avg, app.config['maple'].rotime2.avg)
                 event = ServerSentEvent(json.dumps({'value': data}))
@@ -195,7 +210,7 @@ async def rotimes():
 @app.route("/api/extratimes")
 async def extratimes():
     async def send_events():
-        # async with o.watch() as queue:
+        # async with awithinmainloop(o.watch()) as queue:
         while True:
             t1 = app.config['maple'].at_pressure_time
             if t1 is not None:
