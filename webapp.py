@@ -126,12 +126,11 @@ async def outputsls():
 @app.route("/api/pressure")
 async def pressure():
     async def send_events():
-        #async with o.watch() as queue:
-        while True:
-                data = app.config['maple'].pressure#await queue.get()
+        async with app.config['maple'].pressure.watch() as queue:
+            while True:
+                data = await queue.get()
                 event = ServerSentEvent(json.dumps({'value': data}))
                 yield event.encode()
-                await asyncio.sleep(.3)
 
     response = await make_response(send_events(), ServerSentEvent.headers)
     response.timeout = None
