@@ -271,7 +271,7 @@ CREATE TABLE IF NOT EXISTS events (
 
     self.setpressure = 125
     self.at_pressure_time = None
-    self.runingTimeWithFloatOff = 0
+    self.runningTimeWithFloatOff = None
 
     self.saptime1, self.saptime2 = OnOffAverager.avgOfOutput(self.sapvac)
     self.outtime1, self.outtime2 = OnOffAverager.avgOfOutput(self.outpump)
@@ -293,16 +293,16 @@ CREATE TABLE IF NOT EXISTS events (
     task_pressure_read_t = watchedtask(task_pressure_read())
 
     async def task_levelwatch():
-      self.runingTimeWithFloatOff = 0
+      self.runningTimeWithFloatOff = None
       last = None
       while True:
         if self.rofloat.value:
-          self.runingTimeWithFloatOff = 0
+          self.runningTimeWithFloatOff = 0
           last = None
         elif self.rossr.value:
           now = time.time()
           if last is not None:
-            self.runingTimeWithFloatOff += now - last
+            self.runningTimeWithFloatOff += now - last
           last = now
         else:
           last = None
@@ -320,7 +320,7 @@ CREATE TABLE IF NOT EXISTS events (
           if self.at_pressure_time is None:
             self.at_pressure_time = time.time()
         else:
-          if self.rofloat.value or self.runingTimeWithFloatOff < 15:
+          if self.rofloat.value or self.runningTimeWithFloatOff is not None and self.runningTimeWithFloatOff < 15:
             self.rossr.on()
           else:
             self.rossr.off()
