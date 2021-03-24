@@ -70,6 +70,7 @@ class AsyncDigitalInputDevice(gpiozero.DigitalInputDevice):
     v = self.value
     await queue.put((2, v))
     async def loopfunc():
+      nonlocal v
       while True:
         await self.wait_for_active(inverse=v)
         v = not v
@@ -165,7 +166,6 @@ class WatchableExpression():
         nonlocal vnow
         async with contextlib.AsyncExitStack() as stack:
           queues = {await stack.enter_async_context(val.watch()): name for name, val in self.kwargs.items()}
-          print ('w3', len(queues), queues)
           while True:
             await asyncio.wait([asyncio.create_task(q.get()) for q in queues], return_when=asyncio.FIRST_COMPLETED)
             v = self.value

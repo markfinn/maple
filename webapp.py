@@ -151,20 +151,6 @@ async def pressure():
     response.timeout = None
     return response
 
-@app.route("/api/ins")
-async def tempins():
-    async def send_events():
-        #async with awithinmainloop(o.watch()) as queue:
-        while True:
-                data = (app.config['maple'].sapfloat.value, app.config['maple'].sapfloathigh.value, app.config['maple'].rofloat.value)
-                event = ServerSentEvent(json.dumps({'value': data}))
-                yield event.encode()
-                await asyncio.sleep(.3)
-
-    response = await make_response(send_events(), ServerSentEvent.headers)
-    response.timeout = None
-    return response
-
 @app.route("/api/saptimes")
 async def saptimes():
     async def send_events():

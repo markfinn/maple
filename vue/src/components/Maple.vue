@@ -6,7 +6,6 @@
   <a href="http://maple.bluesparc.net:3000/src/processFlow.html">Diagram</a><br>
   <a href="http://maple.bluesparc.net:3000/src/processFlowEditor.html">Editor</a><br>
   <Gauge url="https://maple.bluesparc.net:8443/api/pressure"/><br>
-  <Gauge url="https://maple.bluesparc.net:8443/api/ins"/><br>
   <Gauge url="https://maple.bluesparc.net:8443/api/saptimes"/><br>
   <Gauge url="https://maple.bluesparc.net:8443/api/rotimes"/><br>
   <Gauge url="https://maple.bluesparc.net:8443/api/outtimes"/><br>
