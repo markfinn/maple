@@ -258,9 +258,9 @@ CREATE TABLE IF NOT EXISTS events (
 
     self.outpump = OverridableDigitalOutputDevice(25, active_high=False)
 
-    #dontexist
-    self.syruprecerc = OverridableDigitalOutputDevice(7, active_high=False)
-    self.waterrecerc = OverridableDigitalOutputDevice(1, active_high=False)
+    self.waterin = OverridableDigitalOutputDevice(7, active_high=False)
+
+    #self.unused1 = OverridableDigitalOutputDevice(1, active_high=False)
     #self.primepump = OverridableDigitalOutputDevice(20, active_high=False)
 
 
@@ -304,6 +304,8 @@ CREATE TABLE IF NOT EXISTS events (
           if last is not None:
             self.runingTimeWithFloatOff += now - last
           last = now
+        else:
+          last = None
         await asyncio.sleep(.09)
 
     task_levelwatch_t = watchedtask(task_levelwatch())
@@ -318,7 +320,7 @@ CREATE TABLE IF NOT EXISTS events (
           if self.at_pressure_time is None:
             self.at_pressure_time = time.time()
         else:
-          if self.rofloat.value or self.runingTimeWithFloatOff < 25:
+          if self.rofloat.value or self.runingTimeWithFloatOff < 15:
             self.rossr.on()
           else:
             self.rossr.off()
@@ -414,12 +416,10 @@ CREATE TABLE IF NOT EXISTS events (
         self.romain.overmode = 0
         self.rossr.off()
         self.rossr.overmode = 0
-        self.syruprecerc.off()
-        self.syruprecerc.overmode = 0
+        self.waterin.off()
+        self.waterin.overmode = 0
         self.outpump.off()
         self.outpump.overmode = 0
-        self.waterrecerc.off()
-        self.waterrecerc.overmode = 0
 
         await watchdog.keep_alive()
         wd_task.cancel()
