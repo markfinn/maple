@@ -3,3 +3,6 @@ maple.log
 .idea
 __pycache__
 venv
+Python-3.9.2/
+fullchain.pem
+privkey.pem
