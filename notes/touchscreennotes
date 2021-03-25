@@ -1,12 +1,3 @@
-  485  dmesg
-  486  sudo screen /dev/ttyUSB0
-  487  cd maple/
-  488  sudo apt install screen
-  489  joe pkgs
-  490  sudo screen /dev/ttyUSB0
-  491  screen -r
-  492  sudo screen -r
-  493  screen -R
   494  sudo apt-get install xserver-xorg-input-mutouch
   495  cr /etc/X11/
   496  ls
@@ -172,3 +163,10 @@
   674  ls /usr/local/src/linux/drivers/input/touchscreen/*.ko
   675  screen
   676  ls /usr/local/src/linux/drivers/input/touchscreen/*.ko
+
+
+
+ 2914  sudo insmod /usr/local/src/linux/drivers/input/touchscreen/elo.ko
+ 2912  sudo inputattach -elo /dev/ttyUSB0 
+ 2919  evtest
+
