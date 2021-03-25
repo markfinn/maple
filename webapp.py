@@ -134,7 +134,7 @@ async def outputsls():
         o = getattr(app.config['maple'], n)
         if request.endpoint=='outputsls' and isinstance(o, control.OverridableDigitalOutputDevice) or \
                 request.endpoint=='inputsls' and isinstance(o, control.AsyncDigitalInputDevice):
-            response[n] = await runinmainloop(stro(o))
+            response[n] = o.value
 
     return response
 

@@ -40,6 +40,10 @@ class TestMaple(unittest.IsolatedAsyncioTestCase):
         import util
 
     async def asyncSetUp(self):
+        #set web app to test mode
+        webapp.app.testing = True
+        self.web = webapp.app.test_client()
+
         # start up the maintask
 
         #use a mock to get access to the Maple() that main instantiates so we can analyze its pins
@@ -51,7 +55,7 @@ class TestMaple(unittest.IsolatedAsyncioTestCase):
                 return self.Maple
 
             m.side_effect=side_effect
-            self.maintask = asyncio.create_task(main.main(None))
+            self.maintask = asyncio.create_task(main.main(8444))
 
             #wait for a Maple to be instantiated or a crash
             while not self.Maple and not self.maintask.done():
@@ -59,6 +63,16 @@ class TestMaple(unittest.IsolatedAsyncioTestCase):
             if self.maintask.done():
                 await self.maintask
             m.assert_called_once()
+
+        # wait for the webserver thread to get its loop assigned
+        while True:
+            try:
+                self.webloop = main.webloop
+                self.webshut = main.webshut
+                break
+            except AttributeError:
+                await asyncio.sleep(.01)
+                continue
 
         self.pin_sapfloathigh = self.pin_factory.pins[8]
         self.pin_sapfloat = self.pin_factory.pins[18]
@@ -75,6 +89,7 @@ class TestMaple(unittest.IsolatedAsyncioTestCase):
 
 
     def tearDown(self):
+        self.webloop.call_soon_threadsafe(self.webshut.set)
         self.maintask.cancel()
         self.patch1.stop()
 
@@ -94,6 +109,29 @@ class TestMaple(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.pin_sapvac.state)
         await asyncio.sleep(.5)
         self.assertTrue(self.pin_sapvac.state)
+
+
+    async def test_web_start(self):
+        response = await util.runinotherloop(self.web.get('/'), self.webloop)
+        self.assertEqual(response.status_code, 302)
+        response = await util.runinotherloop(self.web.get('/api/inputs'), self.webloop)
+        self.assertEqual(response.status_code, 200)
+
+
+    async def test_web_inputs(self):
+        response = await util.runinotherloop(self.web.get('/api/inputs'), self.webloop)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual({'rofloat': True, 'sapfloat': False, 'sapfloathigh': False}, await response.json)
+        self.pin_sapfloat.drive_low()
+        await asyncio.sleep(.25)
+        response = await util.runinotherloop(self.web.get('/api/inputs'), self.webloop)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual({'rofloat': True, 'sapfloat': True, 'sapfloathigh': False}, await response.json)
+        self.pin_sapfloat.drive_high()
+        await asyncio.sleep(.25)
+        response = await util.runinotherloop(self.web.get('/api/inputs'), self.webloop)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual({'rofloat': True, 'sapfloat': False, 'sapfloathigh': False}, await response.json)
 
 if __name__ == '__main__':
     unittest.main()

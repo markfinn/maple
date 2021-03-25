@@ -37,9 +37,9 @@ async def main(webport=8443):
       new_loop = asyncio.new_event_loop()
       asyncio.set_event_loop(new_loop)
       shutdown_event = asyncio.Event()
-      nonlocal webloop
+      global webloop
       webloop = new_loop
-      nonlocal webshut
+      global webshut
       webshut = shutdown_event
 
       # for sending to web
