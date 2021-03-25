@@ -269,7 +269,7 @@ CREATE TABLE IF NOT EXISTS events (
     self.rofloat = AsyncDigitalInputDevice(16, pull_up=True, active_state=None, invert=True)
     self.iicadc = Adafruit_ADS1x15.ADS1015()
 
-    self.setpressure = 125
+    self.setpressure = 140
     self.at_pressure_time = None
     self.runningTimeWithFloatOff = None
 
