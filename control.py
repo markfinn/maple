@@ -13,6 +13,31 @@ from util import *
 
 log = logging.getLogger('maple')
 
+class Watchdog():
+  def __init__(self):
+    watchdog = watchdogdev.watchdog('/dev/watchdog')
+    log.info('Setting Watchdog')
+    watchdog.set_timeout(5)
+    if watchdog.get_boot_status():
+      log.error('Last boot was from Watchdog!!')  # not working?
+
+    async def wd_alive():
+      while True:
+        watchdog.keep_alive()
+        await asyncio.sleep(1)
+
+    self.wd_task = asyncio.ensure_future(wd_alive())
+    self.wd = watchdog
+
+  async def close(self):
+    wd=self.wd
+    if wd is None:
+      return
+    self.wd = None
+    await wd.keep_alive()
+    self.wd_task.cancel()
+    wd.magic_close()
+
 class Maple():
   SHUTDOWN = 1
   RUN = 2
@@ -34,20 +59,7 @@ CREATE TABLE IF NOT EXISTS events (
     #      db.execute('insert into events (time, type, state) VALUES (?,?,?)', (time, type, state)
 
 
-
-    log.info('Setting Watchdog')
-    watchdog = watchdogdev.watchdog('/dev/watchdog')
-    watchdog.set_timeout(5)
-    if watchdog.get_boot_status():
-      log.error('Last boot was from Watchdog!!')  # not working?
-
-    async def wd_alive():
-      while True:
-        watchdog.keep_alive()
-        await asyncio.sleep(1)
-
-    wd_task = asyncio.ensure_future(wd_alive())
-#    watchdog.magic_close()
+    watchdog = Watchdog()
 
 
     self.vacpump = OverridableDigitalOutputDevice(12, active_high=True)
@@ -209,9 +221,9 @@ CREATE TABLE IF NOT EXISTS events (
         self.outpump.off()
         self.outpump.overmode = 0
 
-        await watchdog.keep_alive()
-        wd_task.cancel()
-        watchdog.magic_close()
+        await watchdog.close()
+
+
         log.info('Shutdown')
         self.changestate(Maple.SHUTDOWN)
 
