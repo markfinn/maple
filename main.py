@@ -1,8 +1,6 @@
-import gpiozero
 import logging
 import asyncio
 import signal, os, sys
-import watchdogdev
 import webapp
 import threading
 import contextlib
@@ -16,7 +14,7 @@ log.setLevel(logging.DEBUG)
 
 ch = logging.StreamHandler()
 #ch = logging.FileHandler('/home/mark/maple.log')
-if os.getenv("INVOCATION_ID"):
+if '--nologtime' in sys.argv:
   #am under systemd for logging, journal has timestamp
   formatter = logging.Formatter('%(levelname)s - %(message)s')
 else:
@@ -27,10 +25,7 @@ log.addHandler(ch)
 
 
 ######################################################3
-async def main():
-
-
-
+async def main(webport=8443):
   log.info('Starting')
 
   maple = Maple()
@@ -93,7 +88,7 @@ async def main():
         webapp.app.config['mainloop'] = mainloop
         webapp.app.config['maple'] = maple
         webapp.app.config['logqueuer'] = logqueue
-        new_loop.run_until_complete(webapp.app.run_task(host="0.0.0.0", port=8443, certfile='fullchain.pem', keyfile='privkey.pem', debug=False, use_reloader=False, shutdown_trigger=shutdown_event.wait))
+        new_loop.run_until_complete(webapp.app.run_task(host="0.0.0.0", port=webport, certfile='fullchain.pem', keyfile='privkey.pem', debug=False, use_reloader=False, shutdown_trigger=shutdown_event.wait))
 
 
       finally:
@@ -103,7 +98,8 @@ async def main():
         new_loop.run_until_complete(new_loop.shutdown_asyncgens())
         new_loop.close()
 
-    threading.Thread(target=worker, args=(asyncio.get_event_loop(),)).start()
+    if webport:
+      threading.Thread(target=worker, args=(asyncio.get_event_loop(),)).start()
 
   except:
     log.exception('failed to start web service')

@@ -1,14 +1,6 @@
-import gpiozero
-import logging
-import asyncio
-import signal, os, sys
-import webapp
-import contextlib
-import time
 import sqlite3
 import Adafruit_ADS1x15
 import watchdogdev
-import fcntl
 from util import *
 
 log = logging.getLogger('maple')
@@ -29,12 +21,12 @@ class Watchdog():
     self.wd_task = asyncio.ensure_future(wd_alive())
     self.wd = watchdog
 
-  async def close(self):
+  def close(self):
     wd=self.wd
     if wd is None:
       return
     self.wd = None
-    await wd.keep_alive()
+    wd.keep_alive()
     self.wd_task.cancel()
     wd.magic_close()
 
@@ -67,6 +59,7 @@ CREATE TABLE IF NOT EXISTS events (
     self.sapvac = OverridableDigitalOutputDevice(15, active_high=False)
 
     self.romain = OverridableDigitalOutputDevice(23, active_high=False)
+
     self.rossr = OverridableDigitalOutputDevice(24, active_high=True, frequency=1, factory = gpiozero.PWMOutputDevice)
 
     self.outpump = OverridableDigitalOutputDevice(25, active_high=False)
@@ -221,7 +214,7 @@ CREATE TABLE IF NOT EXISTS events (
         self.outpump.off()
         self.outpump.overmode = 0
 
-        await watchdog.close()
+        watchdog.close()
 
 
         log.info('Shutdown')

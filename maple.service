@@ -6,7 +6,7 @@ After=multi-user.target
 [Service]
 Type=simple
 WorkingDirectory=/home/mark/maple
-ExecStart=/home/mark/maple/venv/bin/python /home/mark/maple/main.py
+ExecStart=/home/mark/maple/venv/bin/python /home/mark/maple/main.py --nologtime
 Restart=always
 User=mark
 Group=mark
