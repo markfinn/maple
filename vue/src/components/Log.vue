@@ -9,9 +9,9 @@ import {onMounted, ref} from 'vue'
 
 export default {
   name: 'Log',
-  props{
+  props: {
     apiurl: String
-  }
+  },
   setup(props) {
     const log = ref([]);
     onMounted(async () => {
