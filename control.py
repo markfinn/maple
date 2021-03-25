@@ -355,7 +355,7 @@ CREATE TABLE IF NOT EXISTS events (
         self.sapvac.on()
 
         try:
-          await self.sapfloathigh.wait_for_active(5)
+          await self.sapfloathigh.wait_for_active(20)
         except asyncio.TimeoutError:
           pass
         if not self.sapfloat.value:
