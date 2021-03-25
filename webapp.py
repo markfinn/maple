@@ -1,14 +1,15 @@
-import sys
 import asyncio
-import contextlib
 from quart import Quart, redirect, abort, make_response, request, json
 from quart_cors import cors
 import control
 import time
 import util
 
+
+external_addr = 'http://maple.bluesparc.net:3000'
+
 app = Quart(__name__)
-app = cors(app, allow_origin='http://maple.bluesparc.net:3000')#  '*' works too
+app = cors(app, allow_origin=external_addr)#  '*' works too
 
 import logging
 logging.getLogger('quart.serving').setLevel('WARNING')
@@ -49,7 +50,7 @@ class ServerSentEvent:
 
 @app.route("/")
 async def index():
-    return redirect("http://maple.bluesparc.net:3000", code=302)
+    return redirect(external_addr, code=302)
  
 @app.route("/api/reboot", methods=['POST'])
 async def reboot():

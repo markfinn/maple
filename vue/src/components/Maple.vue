@@ -5,14 +5,14 @@
   <hr>
   <a href="http://maple.bluesparc.net:3000/src/processFlow.html">Diagram</a><br>
   <a href="http://maple.bluesparc.net:3000/src/processFlowEditor.html">Editor</a><br>
-  <Gauge url="https://maple.bluesparc.net:8443/api/pressure"/><br>
-  <Gauge url="https://maple.bluesparc.net:8443/api/saptimes"/><br>
-  <Gauge url="https://maple.bluesparc.net:8443/api/rotimes"/><br>
-  <Gauge url="https://maple.bluesparc.net:8443/api/outtimes"/><br>
-  <Gauge url="https://maple.bluesparc.net:8443/api/extratimes"/><br>
-  <Inputs/>
-  <Outputs/>
-  <Log/>
+  <Gauge :url="apiurl + '/pressure'"/><br>
+  <Gauge :url="apiurl + '/saptimes'"/><br>
+  <Gauge :url="apiurl + '/rotimes'"/><br>
+  <Gauge :url="apiurl + '/outtimes'"/><br>
+  <Gauge :url="apiurl + '/extratimes'"/><br>
+  <Inputs :apiurl="apiurl" />
+  <Outputs :apiurl="apiurl" />
+  <Log :apiurl="apiurl" />
 </template>
 
 <script>
@@ -25,16 +25,19 @@ import Log from "./Log.vue";
 export default {
   name: 'Maple',
   components: {Log, Outputs, Inputs, Gauge},
+  props: {
+    apiurl: String
+  },
   methods: {
     reload() {
       location.reload(true)
     },
     async reboot() {
-      const response = await postData('https://maple.bluesparc.net:8443/api/reboot');
+      const response = await postData(apiurl + '/reboot');
       //console.log(response)
     },
     async poweroff() {
-      const response = await postData('https://maple.bluesparc.net:8443/api/poweroff');
+      const response = await postData(apiurl + '/poweroff');
       //console.log(response)
     }
   }

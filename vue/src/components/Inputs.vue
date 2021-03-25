@@ -3,7 +3,7 @@
     <ul class="list-group">
       <li v-for="item in items" class="list-group-item">
         {{ item }}
-        <DigitalInput :which="item"/>
+        <DigitalInput :which="item" :apiurl="apiurl" />
       </li>
     </ul>
   </div>
@@ -16,13 +16,16 @@ import {onMounted, ref} from "vue";
 export default {
   name: "Inputs",
   components: {DigitalInput},
+  props: {
+    apiurl: String
+  },
   setup(props) {
     const items = ref([]);
     onMounted(() => {
       async function getinputs() {
         let next = 5000;
         try {
-          const response = await fetch('https://maple.bluesparc.net:8443/api/inputs');
+          const response = await fetch(props.apiurl + '/inputs');
           const inputs = await response.json();
           items.value = Object.keys(inputs);
         } catch (e) {

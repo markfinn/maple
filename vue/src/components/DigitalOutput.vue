@@ -13,7 +13,8 @@ import { postData } from "../util.js";
 export default {
   name: "DigitalOutput",
   props: {
-    which: String
+    which: String,
+    apiurl: String
   },
   computed: {
     classOn() {
@@ -48,7 +49,7 @@ export default {
   },
   methods: {
     async click(mode) {
-      const response = await postData(`https://maple.bluesparc.net:8443/api/outputs/${this.which}`, {value: mode});
+      const response = await postData(this.apiurl + `/outputs/${this.which}`, {value: mode});
       //console.log(response)
     }
   },
@@ -56,7 +57,7 @@ export default {
     const overridden = ref(null);
     const natural = ref(null);
     onMounted(async () => {
-      var es = new EventSource(`https://maple.bluesparc.net:8443/api/outputs/${props.which}`);
+      var es = new EventSource(props.apiurl + `/outputs/${props.which}`);
       es.onmessage = (event) => {
         const data = JSON.parse(event.data)
         overridden.value = data['overmode'];

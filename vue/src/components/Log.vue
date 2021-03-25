@@ -9,10 +9,13 @@ import {onMounted, ref} from 'vue'
 
 export default {
   name: 'Log',
-  setup() {
+  props{
+    apiurl: String
+  }
+  setup(props) {
     const log = ref([]);
     onMounted(async () => {
-      var es = new EventSource('https://maple.bluesparc.net:8443/api/log');
+      var es = new EventSource(props.apiurl + '/log');
       es.onmessage = (event) => {
         log.value.unshift(event.data);
       }
