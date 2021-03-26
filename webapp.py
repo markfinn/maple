@@ -202,7 +202,7 @@ async def extratimes():
             t1 = app.config['maple'].at_pressure_time
             if t1 is not None:
               t1 = time.time() - t1
-            data = (t1, app.config['maple'].runningTimeWithFloatOff)
+            data = (t1, app.config['maple'].runningTimeWithFloatOff, app.config['maple'].at_pressure_time2.value)
             event = ServerSentEvent(json.dumps({'value': data}))
             yield event.encode()
             await asyncio.sleep(1)

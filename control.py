@@ -1,4 +1,5 @@
-import sqlite3
+import aiosqlite
+import time
 import Adafruit_ADS1x15
 import watchdogdev
 from util import *
@@ -31,28 +32,35 @@ class Watchdog():
     wd.magic_close()
 
 class Maple():
-  SHUTDOWN = 1
-  RUN = 2
+  NOTRUN = 0
+  STARTING = 1
+  RUNNING = 2
+  SHUTDOWN = 3
   def __init__(self):
     self._waiter = asyncio.Event()
-    self.state = Maple.RUN
+    self.state = Maple.NOTRUN
 
-    db = sqlite3.Connection('/home/mark/maple/db.sq3')
-    db.execute('''
-CREATE TABLE IF NOT EXISTS events (
-    time REAL NOT NULL,
-    type TEXT NOT NULL,
-    state TEXT
-);''')
 
-    #    def event(type, state, time=None):
-    #      if time is None:
-    #        time = timemod.time()
-    #      db.execute('insert into events (time, type, state) VALUES (?,?,?)', (time, type, state)
+  def eventdb(self, type, state, t=None):
+    if t is None:
+      t = time.time()
+    asyncio.create_task(self.db.execute('insert into events (time, type, state) VALUES (?,?,?)', (time, type, state)))
 
+  async def run(self, shutdown):
+
+    self.changestate(Maple.STARTING)
+
+    self.db = await aiosqlite.connect('/home/mark/maple/db.sq3')
+    await self.db.execute('''
+    CREATE TABLE IF NOT EXISTS events (
+        time REAL NOT NULL,
+        type TEXT NOT NULL,
+        state TEXT
+    );''')
+
+    self.eventdb('prog', 'start')
 
     watchdog = Watchdog()
-
 
     self.vacpump = OverridableDigitalOutputDevice(12, active_high=True)
     self.airvac = OverridableDigitalOutputDevice(14, active_high=False)
@@ -85,142 +93,148 @@ CREATE TABLE IF NOT EXISTS events (
 
     self.pressure = ADCPoll(self.iicadc, 0, tolerance=.1, samplePeriod=.05, tc=.2, scalefunc=lambda v: max(0, ((v / 500 * (47 + 10) / 47) - .5) * 200 / 4) + 6) #why the 6 offset?
 
-    async def task_levelwatch():
-      self.runningTimeWithFloatOff = None
+    def xx(t, pressure, STATIC=[None]):
+      if pressure >= 130 and STATIC[0] is None:
+        STATIC[0] = t
+      elif pressure < 130:
+        STATIC[0] = None
+
+      return 0 if STATIC[0] is None else t - STATIC[0]
+
+    self.at_pressure_time2 = TimeWatchableExpression(xx, pressure=self.pressure)
+
+    async def task_levelwatch(maple):
+      maple.runningTimeWithFloatOff = None
       last = None
       while True:
-        if self.rofloat.value:
-          self.runningTimeWithFloatOff = 0
+        if maple.rofloat.value:
+          maple.runningTimeWithFloatOff = 0
           last = None
-        elif self.rossr.value:
+        elif maple.rossr.value:
           now = time.time()
           if last is not None:
-            self.runningTimeWithFloatOff += now - last
+            maple.runningTimeWithFloatOff += now - last
           last = now
         else:
           last = None
         await asyncio.sleep(.09)
 
-    task_levelwatch_t = watchedtask(task_levelwatch())
+    task_levelwatch_t = watchedtask(task_levelwatch(self))
 
 
-    async def task_ropump():
-      #    self.setpressure = 0
-      self.romain.on()
+    async def task_ropump(maple):
+      #    maple.setpressure = 0
+      maple.romain.on()
+      maple.rossr.off()
       while True:
-        if self.pressure.value > self.setpressure:
-          self.rossr.off()
-          if self.at_pressure_time is None:
-            self.at_pressure_time = time.time()
-        else:
-          if self.rofloat.value or self.runningTimeWithFloatOff is not None and self.runningTimeWithFloatOff < 15:
-            self.rossr.on()
-          else:
-            self.rossr.off()
-          if self.pressure.value < self.setpressure - 10:
-            self.at_pressure_time = None
+        await maple.pressure.waittrue(lambda p: p > maple.setpressure)
+        maple.rossr.off()
+        if maple.at_pressure_time is None:
+          maple.at_pressure_time = time.time()
 
+
+        await maple.pressure.waittrue(lambda p: p < maple.setpressure-1)
+        if maple.rofloat.value or maple.runningTimeWithFloatOff is not None and maple.runningTimeWithFloatOff < 15:
+          maple.rossr.on()
+        else:
+          maple.rossr.off()
+          await maple.rofloat.wait_for_active()
+
+        if maple.pressure.value < maple.setpressure - 10:
+          maple.at_pressure_time = None
+
+    task_ropump_t = watchedtask(task_ropump(self))
+
+
+    async def task_output(maple):
+      while True:
+        if maple.at_pressure_time is not None and time.time()-maple.at_pressure_time > 30:
+          maple.outpump.on()
+        else:
+          maple.outpump.off()
         await asyncio.sleep(.2)
 
-    task_ropump_t = watchedtask(task_ropump())
+    task_output_t = watchedtask(task_output(self))
 
 
-    async def task_output():
-      while True:
-        if self.at_pressure_time is not None and time.time()-self.at_pressure_time > 30:
-          self.outpump.on()
-        else:
-          self.outpump.off()
-        await asyncio.sleep(.2)
-
-    task_output_t = watchedtask(task_output())
-
-
-    async def task_sap():
+    async def task_sap(maple):
       while True:
         log.info('Sap Pump off')
-        self.sapvac.off()
-        self.airvac.on()
+        maple.sapvac.off()
+        maple.airvac.on()
 
-        await self.sapfloat.wait_for_active()
+        await maple.sapfloat.wait_for_active()
 
         log.info('Sap Pump on')
-        self.sapvac.on()
+        maple.sapvac.on()
 
         try:
-          await self.sapfloathigh.wait_for_active(20)
+          await maple.sapfloathigh.wait_for_active(20)
         except asyncio.TimeoutError:
           pass
-        if not self.sapfloat.value:
+        if not maple.sapfloat.value:
           continue
         await asyncio.wait([
-          asyncio.create_task(self.sapfloat.wait_for_inactive()),
-          asyncio.create_task(self.sapfloathigh.wait_for_active())
+          asyncio.create_task(maple.sapfloat.wait_for_inactive()),
+          asyncio.create_task(maple.sapfloathigh.wait_for_active())
         ], timeout=25, return_when=asyncio.FIRST_COMPLETED)
-        if not self.sapfloat.value:
+        if not maple.sapfloat.value:
           continue
-        self.airvac.off()
+        maple.airvac.off()
         await asyncio.sleep(5)
   
-        await self.sapfloat.wait_for_inactive(120)
+        await maple.sapfloat.wait_for_inactive(120)
 
-    task_sap_t = watchedtask(task_sap())
+    task_sap_t = watchedtask(task_sap(self))
 
-    async def task_vac():
-      await self.sapfloat.wait_for_inactive(600)
+    async def task_vac(maple):
+      await maple.sapfloat.wait_for_inactive(600)
 
       while True:
-        self.vacpump.on()
+        maple.vacpump.on()
 
-        await self.sapfloathigh.wait_for_active()
+        await maple.sapfloathigh.wait_for_active()
 
         log.info('Vac Pump off')
-        self.vacpump.off()
+        maple.vacpump.off()
   
-        await self.sapfloathigh.wait_for_inactive(600)
+        await maple.sapfloathigh.wait_for_inactive(600)
 
-    task_vac_t = watchedtask(task_vac())
+    task_vac_t = watchedtask(task_vac(self))
 
 #   die_task_t = watchedtask(asyncio.sleep(3*3600))
 
 
-    async def cleanup_task():
+    try:
       log.info('Running')
-      try:
-        while 1:
-          await asyncio.sleep(10)
-      except SystemExit:
-        log.info('SystemExit')
-      except asyncio.CancelledError:
-        log.info('SystemExit')
-        raise
-      except:
-        log.exception('unhandled exception')
-        # raise
+      self.changestate(Maple.RUNNING)
+      self.eventdb('prog', 'run')
+      await shutdown.wait()
 
-      finally:
-        self.airvac.off()
-        self.airvac.overmode = 0
-        self.vacpump.off()
-        self.vacpump.overmode = 0
-        self.sapvac.off()
-        self.sapvac.overmode = 0
-        self.romain.off()
-        self.romain.overmode = 0
-        self.rossr.off()
-        self.rossr.overmode = 0
-        self.waterin.off()
-        self.waterin.overmode = 0
-        self.outpump.off()
-        self.outpump.overmode = 0
+    finally:
+      self.eventdb('prog', 'stopping')
+      self.airvac.off()
+      self.airvac.overmode = 0
+      self.vacpump.off()
+      self.vacpump.overmode = 0
+      self.sapvac.off()
+      self.sapvac.overmode = 0
+      self.romain.off()
+      self.romain.overmode = 0
+      self.rossr.off()
+      self.rossr.overmode = 0
+      self.waterin.off()
+      self.waterin.overmode = 0
+      self.outpump.off()
+      self.outpump.overmode = 0
 
-        watchdog.close()
+      watchdog.close()
 
+      self.eventdb('prog', 'stopped')
+      await self.db.close()
 
-        log.info('Shutdown')
-        self.changestate(Maple.SHUTDOWN)
-
-    cleanup_task_t = watchedtask(cleanup_task())
+      log.info('Shutdown')
+      self.changestate(Maple.SHUTDOWN)
 
   def changestate(self, newstate):
     self.state = newstate

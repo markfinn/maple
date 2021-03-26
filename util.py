@@ -144,11 +144,13 @@ class OverridableDigitalOutputDevice():
       return '%s <Overridden to %s>'%(self._value, self._overmode)
 
 class WatchableExpression():
-  def __init__(self, exprfunc, tolerance=None, **kwargs):
+  def __init__(self, exprfunc, *, tolerance=None, dontclosewatched=False, **kwargs):
     self.exprfunc = exprfunc
     self.kwargs = kwargs
     self._watchers = set()
     self.tolerance = tolerance
+    self.dontclosewatched = dontclosewatched
+    self.wloop_task = None
 
   @property
   def value(self):
@@ -158,10 +160,9 @@ class WatchableExpression():
   @contextlib.asynccontextmanager
   async def watch(self):
     queue = asyncio.Queue()
-    needinstall = not self._watchers
     vnow = self.value
     self._watchers.add(queue)
-    if needinstall:
+    if self.wloop_task is None:
       async def wloop():
         nonlocal vnow
         async with contextlib.AsyncExitStack() as stack:
@@ -183,74 +184,25 @@ class WatchableExpression():
       yield queue
     finally:
       self._watchers.remove(queue)
-      if not self._watchers:
+      if not self._watchers and not self.dontclosewatched:
         self.wloop_task.cancel()
-        del self.wloop_task
+        self.wloop_task = None
 
 
-  async def waittrue(self):  # waits until true
+  async def waittrue(self, func=None):  # waits until true
     v = self.value
+    if func:
+      v=func(v)
     if v:
       return v
     async with self.watch() as q:
       while True:
         await q.get()
         v = self.value
+        if func:
+          v = func(v)
         if v:
           return v
-
-
-
-class ADCPoll(WatchableExpression):
-  class InnerADC():#provides value and watch, although watch is degenerate and only meant to be used in ADCPoll
-    def __init__(self, adc, channel, samplePeriod):
-      self.t = None
-      self.value = adc.read_adc(channel, gain=1), time.time()
-      self._queue = asyncio.Queue()
-      async def aw():
-        while True:
-          self.value = adc.read_adc(channel, gain=1), time.time()
-          if self._queue.empty():
-            await self._queue.put(None)
-          await asyncio.sleep(samplePeriod)
-      self.t = asyncio.create_task(aw())
-
-    @contextlib.asynccontextmanager
-    async def watch(self):
-      try:
-        yield self._queue
-      finally:
-        self.t.cancel()
-        self.t = None
-
-    def __del__(self):
-      if self.t:
-        self.t.cancel()
-
-  def __init__(self, adc, channel, *, tolerance=None, samplePeriod=.1, tc=0, scalefunc=None):
-    avg = None
-    def valuefunc(valAndTime):
-      nonlocal avg
-      val, treading = valAndTime
-      if tc:
-        if avg is None:
-          avg = val, treading
-        else:
-          dt = treading - avg[1]
-          x = 1 - math.exp(-dt / tc)
-          avg = avg[0] + (val - avg[0]) * x, treading
-          val = avg[0]
-
-      if scalefunc:
-        val = scalefunc(val)
-
-      return val
-
-    self.innerADC = ADCPoll.InnerADC(adc, channel, samplePeriod)
-    super().__init__(valuefunc, valAndTime=self.innerADC, tolerance=tolerance)
-
-  def __del__(self):
-    del self.innerADC
 
 
 
@@ -325,8 +277,12 @@ async def awithinotherloop(coro, loop):
   else:
     await runinotherloop(coro.__aexit__(None, None, None), loop)
 
-#fix the thread prob
-# fix the "adc doesnt fire every sample, so averager wont update value issue
-#MAKE INPUTS WORK ON WEB
-#make onofavger watchable and use it
+
+
+from timeexpr import TimeWatchableExpression, AveragedWatchableExpression, ADCPoll
+
+#use the pressure watch on web + others as avail
 #make a time based watchable and use it
+#MAKE INPUTS overridable ON WEB
+#make onofavger watchable and use it
+
