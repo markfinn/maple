@@ -5,6 +5,8 @@ import asyncio
 
 import gpiozero
 import gpiozero.pins.mock
+import time
+import math
 
 #import sqlite3
 #import Adafruit_ADS1x15
@@ -21,7 +23,9 @@ class TestMaple(unittest.IsolatedAsyncioTestCase):
         self.mock_sqlite3 = MagicMock()
 
         self.mock_Adafruit_ADS1x15 = MagicMock()
-        self.mock_Adafruit_ADS1x15.ADS1015().read_adc.return_value=5
+
+        self.pressure = 100
+        self.mock_Adafruit_ADS1x15.ADS1015().read_adc.side_effect=lambda ch, gain: ((self.pressure - 6)*4/200 +.5)*47/(47+10)*500
 
         self.mock_watchdogdev = MagicMock()
         self.mock_watchdogdev.watchdog().get_boot_status.return_value=0
@@ -48,31 +52,37 @@ class TestMaple(unittest.IsolatedAsyncioTestCase):
 
         #use a mock to get access to the Maple() that main instantiates so we can analyze its pins
         original = main.Maple
-        self.Maple = None
+        self.maple = None
         with patch('main.Maple') as m:
             def side_effect(*a, **kw):
-                self.Maple = original(*a, **kw)
-                return self.Maple
+                self.maple = original(*a, **kw)
+                return self.maple
 
             m.side_effect=side_effect
             self.maintask = asyncio.create_task(main.main(8444))
 
             #wait for a Maple to be instantiated or a crash
-            while not self.Maple and not self.maintask.done():
+            while not self.maple and not self.maintask.done():
                 await asyncio.sleep(.01)
             if self.maintask.done():
                 await self.maintask
             m.assert_called_once()
 
+            await self.maple.wait(self.maple.RUNNING)
+
         # wait for the webserver thread to get its loop assigned
-        while True:
+        for i in range(100):
             try:
                 self.webloop = main.webloop
                 self.webshut = main.webshut
+                self.webthread = main.webthread
+                self.mainshut = main.mainshut
                 break
             except AttributeError:
-                await asyncio.sleep(.01)
-                continue
+                if i < 98:
+                    await asyncio.sleep(.05)
+                    continue
+                raise
 
         self.pin_sapfloathigh = self.pin_factory.pins[8]
         self.pin_sapfloat = self.pin_factory.pins[18]
@@ -87,11 +97,30 @@ class TestMaple(unittest.IsolatedAsyncioTestCase):
         self.pin_waterin = self.pin_factory.pins[7]
 
 
+    async def asyncTearDown(self):
+        self.mainshut.set()
+        self.webloop.call_soon_threadsafe(self.webshut.set)
+        await self.maintask
+        self.webthread.join()
 
     def tearDown(self):
-        self.webloop.call_soon_threadsafe(self.webshut.set)
-        self.maintask.cancel()
         self.patch1.stop()
+
+    async def test_pressure_avg(self):
+        self.assertEqual(self.maple.pressure.value, 100)
+        self.pressure=200
+        t = time.time()
+        for i in range(10):
+            await asyncio.sleep(.2)
+            self.assertAlmostEqual(self.maple.pressure.value, 100 + 100 * (1-math.exp((t-time.time())/.2)), delta=1/(i+1))
+
+        async with self.maple.pressure.watch() as q:
+            v = await q.get()
+            self.pressure = 100
+            t = time.time()
+            self.assertAlmostEqual(v, 200 - 100 * (1-math.exp((t-time.time())/.2)), delta=1/(i+1))
+            self.assertAlmostEqual(self.maple.pressure.value, 200 - 100 * (1-math.exp((t-time.time())/.2)), delta=1/(i+1))
+
 
     async def test_sap_pulse(self):
         await asyncio.sleep(1)

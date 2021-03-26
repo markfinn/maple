@@ -30,8 +30,6 @@ async def main(webport=8443):
 
   maple = Maple()
 
-  webloop = None
-  webshut = None
   try:
     def worker(mainloop):
       new_loop = asyncio.new_event_loop()
@@ -99,7 +97,9 @@ async def main(webport=8443):
         new_loop.close()
 
     if webport:
-      threading.Thread(target=worker, args=(asyncio.get_event_loop(),)).start()
+      global webthread
+      webthread = threading.Thread(target=worker, args=(asyncio.get_event_loop(),))
+      webthread.start()
 
   except:
     log.exception('failed to start web service')
@@ -149,7 +149,9 @@ if __name__ == "__main__":
 
 
   try:
-    await maple.wait(Maple.SHUTDOWN)
+    global mainshut
+    mainshut = asyncio.Event()
+    await maple.run(mainshut)
   finally:
     if webloop:
       webloop.call_soon_threadsafe(webshut.set)
