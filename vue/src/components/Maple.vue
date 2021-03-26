@@ -33,11 +33,11 @@ export default {
       location.reload(true)
     },
     async reboot() {
-      const response = await postData(apiurl + '/reboot');
+      const response = await postData(this.apiurl + '/reboot');
       //console.log(response)
     },
     async poweroff() {
-      const response = await postData(apiurl + '/poweroff');
+      const response = await postData(this.apiurl + '/poweroff');
       //console.log(response)
     }
   }
