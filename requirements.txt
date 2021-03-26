@@ -2,6 +2,7 @@ Adafruit-ADS1x15==1.0.2
 Adafruit-GPIO==1.0.3
 Adafruit-PureIO==1.1.8
 aiofiles==0.6.0
+aiosqlite==0.17.0
 blinker==1.4
 click==7.1.2
 colorzero==1.1
@@ -26,6 +27,7 @@ simple-pid==0.2.4
 six==1.15.0
 spidev==3.5
 toml==0.10.2
+typing-extensions==3.7.4.3
 watchdogdev==1.0.0
 Werkzeug==1.0.1
 wsproto==1.0.0
