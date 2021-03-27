@@ -224,10 +224,10 @@ CREATE TABLE IF NOT EXISTS events (
         while 1:
           await asyncio.sleep(10)
       except SystemExit:
-        log.info('SystemExit')
+        log.info('SystemExit1')
       except asyncio.CancelledError:
-        log.info('SystemExit')
-        raise
+        log.info('CancelledError2')
+#        raise
       except:
         log.exception('unhandled exception')
         # raise

@@ -149,6 +149,7 @@ class WatchableExpression():
     self.kwargs = kwargs
     self._watchers = set()
     self.tolerance = tolerance
+    self.wloop_task = None
 
   @property
   def value(self):
@@ -158,10 +159,9 @@ class WatchableExpression():
   @contextlib.asynccontextmanager
   async def watch(self):
     queue = asyncio.Queue()
-    needinstall = not self._watchers
     vnow = self.value
     self._watchers.add(queue)
-    if needinstall:
+    if self.wloop_task is None:
       async def wloop():
         nonlocal vnow
         async with contextlib.AsyncExitStack() as stack:
@@ -183,8 +183,9 @@ class WatchableExpression():
       yield queue
     finally:
       self._watchers.remove(queue)
-      if not self._watchers:
+      if 0 and not self._watchers:
         self.wloop_task.cancel()
+        self.wloop_task = None
         del self.wloop_task
 
 

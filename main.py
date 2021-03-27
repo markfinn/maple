@@ -30,6 +30,8 @@ async def main(webport=8443):
 
   maple = Maple()
 
+  global webloop
+  global webshut
   webloop = None
   webshut = None
   try:
@@ -150,9 +152,12 @@ if __name__ == "__main__":
 
   try:
     await maple.wait(Maple.SHUTDOWN)
+    log.info('1asdfjklasdfjkzs;flzsdfljkasdfl;jkasdf;kajsdfklajsfsignalling web shutdown')
   finally:
+    log.info('2asdfjklasdfjkzs;flzsdfljkasdfl;jkasdf;kajsdfklajsfsignalling web shutdown')
     if webloop:
-      webloop.call_soon_threadsafe(webshut.set)
+      log.info('signalling web shutdown')
+      webloop.call_soon_threadsafe(webshut.set())
 
 
 ######################################################3
