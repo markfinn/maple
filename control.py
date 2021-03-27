@@ -206,7 +206,7 @@ CREATE TABLE IF NOT EXISTS events (
         except asyncio.TimeoutError:
           pass
 
-    task_sap_t = watchedtask(task_sap())
+    task_wash_t = watchedtask(task_wash())
 
     async def task_vac():
       await self.sapfloat.wait_for_inactive(600)
@@ -221,7 +221,7 @@ CREATE TABLE IF NOT EXISTS events (
   
         await self.sapfloathigh.wait_for_inactive(600)
 
-    task_wash_t = watchedtask(task_wash())
+    task_vac_t = watchedtask(task_vac())
 
 
 
