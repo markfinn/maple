@@ -272,6 +272,7 @@ class OnOffAverager():
     self.val = initial
     self.tc=tc
     self.lastchange = time.time()
+    self.startt = self.lastchange
     self.state = state
 
   def setstate(self, state):
@@ -280,7 +281,8 @@ class OnOffAverager():
     now = time.time()
     dt = now-self.lastchange
     v= float(self.state)
-    x = 1-math.exp(-dt/self.tc)
+    tc = min(self.tc, time.time() - self.startt)
+    x = 1-math.exp(-dt/tc)
 #    print(self.val, v, x, (v-self.val) * x)
     self.val += (v-self.val) * x
     self.lastchange=now
@@ -291,13 +293,14 @@ class OnOffAverager():
     now = time.time()
     dt = now-self.lastchange
     v=1 if self.state else 0
-    x = 1-math.exp(-dt/self.tc)
+    tc = min(self.tc, time.time() - self.startt)
+    x = 1-math.exp(-dt/tc)
     return self.val + (v-self.val) * x
 
   @classmethod
-  def avgOfOutput(cls, output):
-    t1 = cls(state=output.value)
-    t2 = cls(state=output.value if output.overmode == 2 else output.overmode)
+  def avgOfOutput(cls, output, **kwargs):
+    t1 = cls(state=output.value, **kwargs)
+    t2 = cls(state=output.value if output.overmode == 2 else output.overmode, **kwargs)
 
     async def outtime_watch_task():
       async with output.watch() as q:

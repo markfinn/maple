@@ -79,8 +79,8 @@ CREATE TABLE IF NOT EXISTS events (
     self.at_pressure_time = None
     self.runningTimeWithFloatOff = None
 
-    self.saptime1, self.saptime2 = OnOffAverager.avgOfOutput(self.sapvac)
-    self.outtime1, self.outtime2 = OnOffAverager.avgOfOutput(self.outpump)
+    self.saptime1, self.saptime2 = OnOffAverager.avgOfOutput(self.sapvac, tc=60)
+    self.outtime1, self.outtime2 = OnOffAverager.avgOfOutput(self.outpump, tc=60)
     self.rotime1, self.rotime2 = OnOffAverager.avgOfOutput(self.rossr)
 
     self.pressure = ADCPoll(self.iicadc, 0, tolerance=.1, samplePeriod=.05, tc=.2, scalefunc=lambda v: max(0, ((v / 500 * (47 + 10) / 47) - .5) * 200 / 4) + 6) #why the 6 offset?
@@ -181,7 +181,41 @@ CREATE TABLE IF NOT EXISTS events (
 
     task_vac_t = watchedtask(task_vac())
 
-#   die_task_t = watchedtask(asyncio.sleep(3*3600))
+    async def task_wash():
+      while True:
+        self.waterin.off()
+
+        await self.rofloat.wait_for_inactive()
+        await self.sapfloat.wait_for_inactive()
+
+        await asyncio.sleep(1)
+        if self.sapfloat.value or self.rofloat.value or self.sapvac.value:
+          continue
+
+        self.waterin.on()
+
+        try:
+          await self.sapfloathigh.wait_for_active(2)
+        except asyncio.TimeoutError:
+          pass
+
+    task_sap_t = watchedtask(task_sap())
+
+    async def task_vac():
+      await self.sapfloat.wait_for_inactive(600)
+
+      while True:
+        self.vacpump.on()
+
+        await self.sapfloathigh.wait_for_active()
+
+        log.info('Vac Pump off')
+        self.vacpump.off()
+  
+        await self.sapfloathigh.wait_for_inactive(600)
+
+    task_wash_t = watchedtask(task_wash())
+
 
 
     async def cleanup_task():
