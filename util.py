@@ -382,6 +382,7 @@ async def awithinotherloop(coro, loop):
   else:
     await runinotherloop(coro.__aexit__(None, None, None), loop)
 
+#use time.monotonic
 #sap task is not right and maybe dangerous...  release might need to happen again
 #fix the thread prob
 # fix the "adc doesnt fire every sample, so averager wont update value issue
