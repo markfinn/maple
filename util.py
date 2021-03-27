@@ -255,6 +255,59 @@ class ADCPoll(WatchableExpression):
 
 
 
+class HBValve():
+  def __init__(self, gpio1, gpio2, init=False):
+    self.out1 = gpiozero.DigitalOutputDevice(gpio1, active_high=True)
+    self.out2 = gpiozero.DigitalOutputDevice(gpio2, active_high=True)
+    self.lastrun = time.time()
+    self.task = None
+    self._value= not init
+    self.value = init
+
+  @property
+  def value(self):
+    return self._value
+
+  @value.setter
+  def value(self, v):
+    async def x():
+      offtime = time.time() - self.lastrun
+      if offtime < 2.5:
+        await asyncio.sleep(2.5 - offtime)
+      self.out1.off()
+      self.out2.off()
+      v = self._value
+      if v:
+        self.out1.on()
+      else:
+        self.out2.on()
+      
+      await asyncio.sleep(.5)
+      self.out1.off()
+      self.out2.off()
+      self.lastrun = time.time()
+      self.task = None
+      if self._value != v:
+        self.task = asyncio.create_task(x())
+
+    if self._value != v:
+      self._value=v
+      if self.task is None:
+        self.task = asyncio.create_task(x())
+
+  def close():
+    if self.task:
+      self.task.cancel()
+      self.task = None
+    self.out1.off()
+    self.out1.overmode = 0
+    self.out2.overmode = 0
+    self.out2.off()
+    del self.out1
+    del self.out2
+
+
+
 def watchedtask(aw, *, allowFinish=False):
   def test(f):
     if f.cancelled():
@@ -329,8 +382,12 @@ async def awithinotherloop(coro, loop):
   else:
     await runinotherloop(coro.__aexit__(None, None, None), loop)
 
+#sap task is not right and maybe dangerous...  release might need to happen again
 #fix the thread prob
 # fix the "adc doesnt fire every sample, so averager wont update value issue
 #MAKE INPUTS WORK ON WEB
 #make onofavger watchable and use it
 #make a time based watchable and use it
+
+
+

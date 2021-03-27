@@ -30,6 +30,7 @@ class Watchdog():
     self.wd_task.cancel()
     wd.magic_close()
 
+
 class Maple():
   SHUTDOWN = 1
   RUN = 2
@@ -56,19 +57,20 @@ CREATE TABLE IF NOT EXISTS events (
 
     self.vacpump = OverridableDigitalOutputDevice(12, active_high=True)
     self.airvac = OverridableDigitalOutputDevice(14, active_high=False)
-    self.sapvac = OverridableDigitalOutputDevice(15, active_high=False)
+    self.sapvac = OverridableDigitalOutputDevice(15, active_high=True)
 
+    self.outvalve = OverridableDigitalOutputDevice(13, 19, factory=HBValve)
+    
     self.romain = OverridableDigitalOutputDevice(23, active_high=False)
 
     self.rossr = OverridableDigitalOutputDevice(24, active_high=True, frequency=1, factory = gpiozero.PWMOutputDevice)
 
-    self.outpump = OverridableDigitalOutputDevice(25, active_high=False)
+    #self.outpump = OverridableDigitalOutputDevice(25, active_high=False)
 
     self.waterin = OverridableDigitalOutputDevice(7, active_high=False)
 
     #self.unused1 = OverridableDigitalOutputDevice(1, active_high=False)
-    #self.primepump = OverridableDigitalOutputDevice(20, active_high=False)
-
+    self.saprelease = OverridableDigitalOutputDevice(26, active_high=False)
 
     self.sapfloathigh = AsyncDigitalInputDevice(8, pull_up=True, active_state=None)
     self.sapfloat = AsyncDigitalInputDevice(18, pull_up=True, active_state=None)
@@ -80,7 +82,7 @@ CREATE TABLE IF NOT EXISTS events (
     self.runningTimeWithFloatOff = None
 
     self.saptime1, self.saptime2 = OnOffAverager.avgOfOutput(self.sapvac, tc=60)
-    self.outtime1, self.outtime2 = OnOffAverager.avgOfOutput(self.outpump, tc=60)
+    self.outtime1, self.outtime2 = OnOffAverager.avgOfOutput(self.outvalve, tc=60)
     self.rotime1, self.rotime2 = OnOffAverager.avgOfOutput(self.rossr)
 
     self.pressure = ADCPoll(self.iicadc, 0, tolerance=.1, samplePeriod=.05, tc=.2, scalefunc=lambda v: max(0, ((v / 500 * (47 + 10) / 47) - .5) * 200 / 4) + 6) #why the 6 offset?
@@ -127,10 +129,7 @@ CREATE TABLE IF NOT EXISTS events (
 
     async def task_output():
       while True:
-        if self.at_pressure_time is not None and time.time()-self.at_pressure_time > 30:
-          self.outpump.on()
-        else:
-          self.outpump.off()
+        self.outvalve.value = self.at_pressure_time is not None and time.time()-self.at_pressure_time > 30
         await asyncio.sleep(.2)
 
     task_output_t = watchedtask(task_output())
@@ -146,9 +145,17 @@ CREATE TABLE IF NOT EXISTS events (
 
         log.info('Sap Pump on')
         self.sapvac.on()
+        self.airvac.off()
+        self.saprelease.on()
+        try:
+          await self.sapfloathigh.wait_for_active(.9)
+        except asyncio.TimeoutError:
+          pass
+        self.saprelease.off()
+        self.airvac.on()
 
         try:
-          await self.sapfloathigh.wait_for_active(20)
+          await self.sapfloathigh.wait_for_active(2)
         except asyncio.TimeoutError:
           pass
         if not self.sapfloat.value:
@@ -245,9 +252,9 @@ CREATE TABLE IF NOT EXISTS events (
         self.rossr.overmode = 0
         self.waterin.off()
         self.waterin.overmode = 0
-        self.outpump.off()
-        self.outpump.overmode = 0
-
+        self.saprelease.off()
+        self.saprelease.overmode = 0
+        self.outvalve._dev.close() 
         watchdog.close()
 
 
@@ -255,6 +262,7 @@ CREATE TABLE IF NOT EXISTS events (
         self.changestate(Maple.SHUTDOWN)
 
     cleanup_task_t = watchedtask(cleanup_task())
+
 
   def changestate(self, newstate):
     self.state = newstate
