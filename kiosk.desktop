@@ -1,0 +1,8 @@
+#/usr/share/xsessions/kiosk.desktop 
+[Desktop Entry]
+Version=1.0
+Name=Default Xsession
+Exec=/home/mark/maple/kiosk.sh
+Icon=
+Type=Application
+
