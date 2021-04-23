@@ -14,6 +14,11 @@ app = cors(app, allow_origin=external_addr)#  '*' works too
 import logging
 logging.getLogger('quart.serving').setLevel('WARNING')
 
+def runinmainloop(coro):
+    return util.runinotherloop(coro, app.config['mainloop'])
+
+def awithinmainloop(coro):
+    return util.awithinotherloop(coro, app.config['mainloop'])
 
 
 class ServerSentEvent:
@@ -65,12 +70,10 @@ async def poweroff():
     return stdout + stderr
 
 
-def runinmainloop(coro):
-    return util.runinotherloop(coro, app.config['mainloop'])
-
-def awithinmainloop(coro):
-    return util.awithinotherloop(coro, app.config['mainloop'])
-
+@app.route("/api/startup", methods=['POST'])
+async def startup():
+    await runinmainloop(app.config['maple'].webclientstarted())
+    return {}
 
 @app.route("/api/log")
 async def log():

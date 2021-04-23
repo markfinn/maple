@@ -13,7 +13,7 @@ UNCLUTTER_PID=$!
 sed -i 's/"exited_cleanly":false/"exited_cleanly":true/' /home/mark/.config/chromium/Default/Preferences
 sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' /home/mark/.config/chromium/Default/Preferences
 
-/usr/bin/chromium-browser --noerrdialogs --disable-infobars --kiosk http://localhost:3000
+/usr/bin/chromium-browser --noerrdialogs --disable-infobars --kiosk http://maple.bluesparc.net:3000/?startup
 
 kill $UNCLUTTER_PID
 
@@ -21,3 +21,8 @@ kill $UNCLUTTER_PID
 #   xdotool keydown ctrl+Tab; xdotool keyup ctrl+Tab;
 #   sleep 10
 #done
+
+#mark@maple:~/maple (stable)$ sudo systemctl restart lightdm.service
+#mark@maple:~/maple (stable)$ DISPLAY=:0 xdotool key F12
+#mark@maple:~/maple (stable)$ DISPLAY=:0 xdotool key ctrl+shift+J
+#remove --kiosk for dev console?

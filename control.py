@@ -277,3 +277,6 @@ CREATE TABLE IF NOT EXISTS events (
       if state is None or self.state == state:
         return
 
+  async def webclientstarted(self):
+    #this will get called when the local screen gets connected (using /?startup url)
+    pass
